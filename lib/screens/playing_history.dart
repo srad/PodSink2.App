@@ -53,8 +53,9 @@ class PlayingHistoryScreen extends StatelessWidget {
 
 
                 return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
+                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   child: ListTile(
+                    contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 0),
                     leading: ClipRRect(
                       borderRadius: BorderRadius.circular(4.0),
                       child: CachedNetworkImage(
@@ -101,7 +102,7 @@ class PlayingHistoryScreen extends StatelessWidget {
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         IconButton(
-                          icon: Icon(Icons.play_arrow_rounded, color: Colors.greenAccent.shade100),
+                          icon: Icon(Icons.play_circle_rounded, color: Colors.black, size: 30),
                           tooltip: 'Resume',
                           onPressed: () {
                             appState.resumeEpisodeFromHistory(item);
@@ -112,7 +113,7 @@ class PlayingHistoryScreen extends StatelessWidget {
                           },
                         ),
                         IconButton(
-                          icon: Icon(Icons.delete_outline, color: Colors.redAccent.shade100),
+                          icon: Icon(Icons.delete_rounded, color: Colors.red, size: 30),
                           tooltip: 'Remove from history',
                           onPressed: () {
                             appState.removeEpisodeFromHistory(item.guid);
