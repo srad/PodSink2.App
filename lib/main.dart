@@ -1,5 +1,5 @@
-// main.dart (Single File Flutter Podcast App)
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:audio_service/audio_service.dart';
@@ -27,7 +27,7 @@ extension ColorToMaterialColorExtension on Color {
   /// final MaterialColor myCustomSwatch = Colors.blue.toMaterialColor();
   ///
   /// // Then use it in your theme:
-  /// ThemeData(
+  /// ThemeData(  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersive);
   ///   primarySwatch: myCustomSwatch,
   /// )
   /// ```
@@ -149,11 +149,11 @@ BoxDecoration kAppGradientBackground = BoxDecoration(
       // Colors.deepPurple.shade800,
       // Colors.deepPurple.shade700,
       // Colors.deepPurple.shade500,
-      Colors.teal.shade700.toMaterialColor(),
-      Colors.teal.shade600.toMaterialColor(),
-      Colors.teal.shade400.toMaterialColor(),
+      Colors.amber.shade900.toMaterialColor(),
+      Colors.amber.shade800.toMaterialColor(),
+      Colors.amber.shade600.toMaterialColor(),
     ],
-    stops: [0.0, 0.5, 1.0],
+    stops: [0.0, 0.7, 1.0],
   ),
 );
 
@@ -163,23 +163,30 @@ late AudioPlayerHandlerImpl _audioHandlerSingleton;
 // --- Entry Point ---
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  print("main: WidgetsFlutterBinding.ensureInitialized() done.");
+
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.manual, overlays: []);
+  SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+    statusBarColor: Colors.transparent,
+    systemNavigationBarColor: Colors.transparent,
+    statusBarIconBrightness: Brightness.light,
+    systemNavigationBarIconBrightness: Brightness.light,
+  ));
 
   try {
     // kReleaseMode check is unusual here, typically init is for all modes.
     // Keeping as per user's last provided code.
     if (Foundation.kReleaseMode) {
-      print("main: Calling JustAudioBackground.init()...");
+      debugPrint("main: Calling JustAudioBackground.init()...");
       await JustAudioBackground.init(
         androidNotificationChannelId: 'com.mycompany.myapp.channel.audio',
         androidNotificationChannelName: 'Podcast playback',
         androidNotificationOngoing: true,
         // androidNotificationIcon: 'mipmap/ic_notification', // Optional: Custom notification icon
       );
-      print("main: JustAudioBackground.init() completed.");
+      debugPrint("main: JustAudioBackground.init() completed.");
     }
 
-    print("main: Calling AudioService.init()...");
+    debugPrint("main: Calling AudioService.init()...");
     _audioHandlerSingleton = await AudioService.init<AudioPlayerHandlerImpl>(
       builder: () => AudioPlayerHandlerImpl(),
       config: const AudioServiceConfig(
@@ -191,19 +198,19 @@ Future<void> main() async {
         // artDownscaleHeight: 128, // Optional
       ),
     );
-    print("main: AudioService.init() completed.");
+    debugPrint("main: AudioService.init() completed.");
 
   } catch (e, s) {
-    print("Error during initialization: $e");
-    print("Stack trace: $s");
+    debugPrint("Error during initialization: $e");
+    debugPrint("Stack trace: $s");
     if (e.toString().contains("_cacheManager == null': is not true")) {
-      print("CRITICAL: AudioService.init() failed due to _cacheManager assertion. This is likely a plugin initialization conflict.");
+      debugPrint("CRITICAL: AudioService.init() failed due to _cacheManager assertion. This is likely a plugin initialization conflict.");
     }
     _audioHandlerSingleton ??= AudioPlayerHandlerImpl();
   }
 
   await DatabaseHelper.instance.database;
-  print("main: Database initialized.");
+  debugPrint("main: Database initialized.");
 
 
   runApp(
@@ -233,7 +240,7 @@ class DatabaseHelper {
   Future<Database> _initDB(String filePath) async {
     final dbPath = await getApplicationDocumentsDirectory();
     final path = p.join(dbPath.path, filePath);
-    print("Database path: $path");
+    debugPrint("Database path: $path");
     return await openDatabase(path, version: 2, onCreate: _createDB, onUpgrade: _onUpgradeDB);
   }
 
@@ -254,7 +261,7 @@ CREATE TABLE podcasts (
   feedUrl $textType
   )
 ''');
-    print("Podcasts table created.");
+    debugPrint("Podcasts table created.");
 
     await db.execute('''
 CREATE TABLE played_history (
@@ -268,7 +275,7 @@ CREATE TABLE played_history (
   lastPlayedDate $textType 
 )
 ''');
-    print("Played_history table created.");
+    debugPrint("Played_history table created.");
   }
 
   Future _onUpgradeDB(Database db, int oldVersion, int newVersion) async {
@@ -292,7 +299,7 @@ CREATE TABLE IF NOT EXISTS played_history (
   lastPlayedDate $textType 
 )
 ''');
-      print("Played_history table created during upgrade.");
+      debugPrint("Played_history table created during upgrade.");
     }
   }
 
@@ -302,9 +309,9 @@ CREATE TABLE IF NOT EXISTS played_history (
     try {
       return await db.insert('podcasts', podcast.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
     } catch (e) {
-      print("Error inserting podcast into DB: $e");
+      debugPrint("Error inserting podcast into DB: $e");
       if (e is DatabaseException && e.isUniqueConstraintError()) {
-        print("Podcast already exists in DB (ID: ${podcast.id})");
+        debugPrint("Podcast already exists in DB (ID: ${podcast.id})");
         return 0;
       }
       rethrow;
@@ -390,7 +397,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Flutter Podcast App',
       theme: ThemeData(
-          primarySwatch: Colors.deepPurple,
+          primarySwatch: Colors.amber,
           scaffoldBackgroundColor: Colors.transparent, // For gradient to show through
           visualDensity: VisualDensity.adaptivePlatformDensity,
           fontFamily: 'Inter',
@@ -404,22 +411,22 @@ class MyApp extends StatelessWidget {
             elevation: 0, // No shadow
           ),
           floatingActionButtonTheme: const FloatingActionButtonThemeData(
-            backgroundColor: Colors.deepPurpleAccent,
+            backgroundColor: Colors.black54,
             foregroundColor: Colors.white,
           ),
           listTileTheme: ListTileThemeData(
             iconColor: Colors.white70,
             textColor: Colors.white,
-            selectedTileColor: Colors.deepPurple.shade300.withOpacity(0.3),
+            selectedTileColor: Colors.amber.shade300.withValues(alpha: 0.3),
           ),
           inputDecorationTheme: InputDecorationTheme(
             filled: true,
-            fillColor: Colors.white.withOpacity(0.1),
+            fillColor: Colors.white.withValues(alpha: 0.1),
             hintStyle: TextStyle(color: Colors.white70),
             prefixIconColor: Colors.white70,
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(25.0),
-              borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(25.0),
@@ -427,15 +434,15 @@ class MyApp extends StatelessWidget {
             ),
             border: OutlineInputBorder( // Default border
               borderRadius: BorderRadius.circular(25.0),
-              borderSide: BorderSide(color: Colors.white.withOpacity(0.3)),
+              borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.3)),
             ),
           ),
           cardTheme: CardTheme(
-            color: Colors.white.withOpacity(0.15),
+            color: Colors.white.withValues(alpha: 0.15),
             elevation: 0, // Remove shadow if using transparent background
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(12.0),
-              // side: BorderSide(color: Colors.white.withOpacity(0.2)), // Optional border
+              // side: BorderSide(color: Colors.white.withValues(alpha: 0.2)), // Optional border
             ),
           ),
           iconTheme: const IconThemeData(color: Colors.white70),
@@ -444,7 +451,7 @@ class MyApp extends StatelessWidget {
           ),
           elevatedButtonTheme: ElevatedButtonThemeData(
               style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.deepPurpleAccent,
+                  backgroundColor: Colors.amber,
                   foregroundColor: Colors.white
               )
           )
@@ -555,7 +562,7 @@ class Episode {
       if (parts.length == 2) return Duration(minutes: parts[0], seconds: parts[1]);
       if (parts.length == 1) return Duration(seconds: parts[0]);
     } catch (e) {
-      print("Error parsing duration string '$s': $e");
+      debugPrint("Error parsing duration string '$s': $e");
     }
     return null;
   }
@@ -709,7 +716,7 @@ class AppState extends ChangeNotifier {
       _subscribedPodcasts.sort((a, b) => a.title.compareTo(b.title));
       notifyListeners();
     } else {
-      print("Podcast ${podcast.title} is already subscribed.");
+      debugPrint("Podcast ${podcast.title} is already subscribed.");
     }
   }
 
@@ -722,14 +729,14 @@ class AppState extends ChangeNotifier {
   Future<void> loadSubscribedPodcasts() async {
     _subscribedPodcasts = await _dbHelper.getSubscribedPodcasts();
     notifyListeners();
-    print("Loaded ${_subscribedPodcasts.length} subscribed podcasts from DB.");
+    debugPrint("Loaded ${_subscribedPodcasts.length} subscribed podcasts from DB.");
   }
 
   // --- History Methods ---
   Future<void> loadPlayedHistory() async {
     _playedHistory = await _dbHelper.getHistoryItems();
     notifyListeners();
-    print("Loaded ${_playedHistory.length} history items from DB.");
+    debugPrint("Loaded ${_playedHistory.length} history items from DB.");
   }
 
   Future<void> addEpisodeToHistory(PlayedEpisodeHistoryItem historyItem) async {
@@ -759,7 +766,7 @@ class AppState extends ChangeNotifier {
     await _dbHelper.clearAllHistory();
     _playedHistory.clear();
     notifyListeners();
-    print("Cleared all played history.");
+    debugPrint("Cleared all played history.");
   }
 
 
@@ -992,7 +999,8 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler with SeekHandler {
     _player.durationStream.listen((duration) {
       final currentMediaItem = mediaItem.value;
       if (currentMediaItem != null && currentMediaItem.duration != duration) {
-        mediaItem.add(currentMediaItem.copyWith(duration: duration));
+        final newCopy = currentMediaItem.copyWith(duration: duration);
+        mediaItem.add(newCopy);
       }
     });
 
@@ -1026,14 +1034,14 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler with SeekHandler {
       final audioSources = _queue.map((item) {
         Uri? artUri;
         if (item.artUri != null && item.artUri.toString().isNotEmpty) {
-          try { artUri = Uri.parse(item.artUri.toString()); } catch (e) { print("Invalid artUri for ${item.title}: ${item.artUri} - $e");}
+          try { artUri = Uri.parse(item.artUri.toString()); } catch (e) { debugPrint("Invalid artUri for ${item.title}: ${item.artUri} - $e");}
         }
         return ja.AudioSource.uri(Uri.parse(item.id), tag: item.copyWith(artUri: artUri));
       }).toList();
       try {
         await _player.setAudioSource(ja.ConcatenatingAudioSource(children: audioSources), initialIndex: 0, preload: true);
       } catch (e) {
-        print("Error setting audio source: $e");
+        debugPrint("Error setting audio source: $e");
         mediaItem.add(null);
         playbackState.add(playbackState.value.copyWith(
           processingState: AudioProcessingState.error,
@@ -1055,7 +1063,7 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler with SeekHandler {
     if (_player.audioSource is ja.ConcatenatingAudioSource) {
       Uri? artUri;
       if (item.artUri != null && item.artUri.toString().isNotEmpty) {
-        try { artUri = Uri.parse(item.artUri.toString()); } catch (e) { print("Invalid artUri for ${item.title}: ${item.artUri} - $e");}
+        try { artUri = Uri.parse(item.artUri.toString()); } catch (e) { debugPrint("Invalid artUri for ${item.title}: ${item.artUri} - $e");}
       }
       await (_player.audioSource as ja.ConcatenatingAudioSource).add(ja.AudioSource.uri(Uri.parse(item.id), tag: item.copyWith(artUri: artUri)));
     } else {
@@ -1069,7 +1077,7 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler with SeekHandler {
       try {
         await _player.play();
       } catch (e) {
-        print("Error on play: $e");
+        debugPrint("Error on play: $e");
         playbackState.add(playbackState.value.copyWith(
           processingState: AudioProcessingState.error,
           playing: false,
@@ -1083,7 +1091,7 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler with SeekHandler {
         try {
           await _player.play();
         } catch (e) {
-          print("Error on play after setQueue: $e");
+          debugPrint("Error on play after setQueue: $e");
           playbackState.add(playbackState.value.copyWith(
             processingState: AudioProcessingState.error,
             playing: false,
@@ -1107,20 +1115,20 @@ class AudioPlayerHandlerImpl extends BaseAudioHandler with SeekHandler {
   @override
   Future<void> skipToNext() async {
     await _player.seekToNext();
-    if (playbackState.value.playing && !_player.playing) await _player.play().catchError((e) => print("Error playing next: $e"));
+    if (playbackState.value.playing && !_player.playing) await _player.play().catchError((e) => debugPrint("Error playing next: $e"));
   }
 
   @override
   Future<void> skipToPrevious() async {
     await _player.seekToPrevious();
-    if (playbackState.value.playing && !_player.playing) await _player.play().catchError((e) => print("Error playing previous: $e"));
+    if (playbackState.value.playing && !_player.playing) await _player.play().catchError((e) => debugPrint("Error playing previous: $e"));
   }
 
   @override
   Future<void> skipToQueueItem(int index) async {
     if (index < 0 || index >= _queue.length) return;
     await _player.seek(Duration.zero, index: index);
-    if (playbackState.value.playing && !_player.playing) await _player.play().catchError((e) => print("Error playing item $index: $e"));
+    if (playbackState.value.playing && !_player.playing) await _player.play().catchError((e) => debugPrint("Error playing item $index: $e"));
   }
 
   @override
@@ -1200,7 +1208,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  String _searchQuery = '';
+  final _searchController = TextEditingController(text: "");
 
   @override
   void initState() {
@@ -1210,7 +1218,7 @@ class _HomeScreenState extends State<HomeScreen> {
         Provider.of<AppState>(context, listen: false).loadSubscribedPodcasts();
         Provider.of<AppState>(context, listen: false).loadPlayedHistory(); // Load history
       } catch (e) {
-        print("Error in HomeScreen initState accessing AppState: $e");
+        debugPrint("Error in HomeScreen initState accessing AppState: $e");
       }
     });
   }
@@ -1219,69 +1227,86 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final appState = Provider.of<AppState>(context);
     final subscribedPodcasts = appState.subscribedPodcasts.where((p) =>
-    p.title.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-        p.artistName.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+    p.title.toLowerCase().contains(_searchController.text.toLowerCase()) ||
+        p.artistName.toLowerCase().contains(_searchController.text.toLowerCase())).toList();
 
-    return Scaffold(
-      extendBodyBehindAppBar: true, // Allow body to go behind transparent AppBar
-      appBar: AppBar(
-        title: const Text('My Podcasts'),
-        // backgroundColor: Colors.transparent, // Already set in theme
-        // elevation: 0, // Already set in theme
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(64.0),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 0.0),
-            child: TextField(
-              style: const TextStyle(color: Colors.white), // Text input color
-              decoration: InputDecoration(
-                hintText: 'Search subscribed...',
-                hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-                prefixIcon: Icon(Icons.search, color: Colors.white.withOpacity(0.7)),
-                // Borders are themed globally
-              ),
-              onChanged: (value) => setState(() => _searchQuery = value),
-            ),
+    return Stack(
+      children: [
+      // Gradient background covering the whole screen
+        Positioned.fill(
+          child: Container(
+            decoration: kAppGradientBackground,
           ),
         ),
+
+    // Your Scaffold on top
+
+    Scaffold(
+      appBar: AppBar(
+        title: const Text('My Podcasts'),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
       ),
       drawer: const AppDrawer(), // Add the drawer
-      body: Container(
-        margin: EdgeInsets.fromLTRB(0, 50, 0, 0),
-        decoration: kAppGradientBackground, // Apply gradient to body
-        child: Column(
+
+      body: Column(
+        mainAxisAlignment: MainAxisAlignment.start,
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
+                child: TextField(
+                  controller: _searchController,
+                  style: const TextStyle(color: Colors.white), // Text input color
+                  decoration: InputDecoration(
+                    hintText: 'Search subscribed...',
+                    hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+                    prefixIcon: Icon(Icons.search, color: Colors.white.withValues(alpha: 0.7)),
+                    suffixIcon: _searchController.text.isNotEmpty ?  IconButton(onPressed: () => setState(() => _searchController.text = ''), icon: Icon(Icons.close_rounded, color: Colors.white)): null,
+                    // Borders are themed globally
+                  ),
+                  onChanged: (value) => setState(() => _searchController.text = value),
+                ),
+              ),
             Expanded(
               child: subscribedPodcasts.isEmpty
                   ? Center(
                 child: Padding(
                   padding: const EdgeInsets.all(16.0),
                   child: Text(
-                    _searchQuery.isEmpty ? 'No podcasts subscribed yet.\nTap "+" to add.' : 'No podcasts found for "$_searchQuery".',
+                    _searchController.text.isEmpty ? 'No podcasts subscribed yet.\nTap "+" to add.' : 'No podcasts found for "${_searchController.text}".',
                     textAlign: TextAlign.center,
                     style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white70),
                   ),
                 ),
               )
                   : ListView.builder(
-                padding: const EdgeInsets.only(top: kToolbarHeight + 72, left: 8, right: 8, bottom: 8), // Adjust top padding for AppBar
+                padding: const EdgeInsets.only(left: 8, right: 8, bottom: 8), // Adjust top padding for AppBar
                 itemCount: subscribedPodcasts.length,
                 itemBuilder: (context, index) {
                   final podcast = subscribedPodcasts[index];
                   return Card( // Card styling will be picked from theme
-                    // color: Colors.white.withOpacity(0.15), // Example explicit styling if theme is not enough
+                    // color: Colors.white.withValues(alpha: 0.15), // Example explicit styling if theme is not enough
                     child: ListTile(
+                      contentPadding: EdgeInsets.symmetric(horizontal: 8),
                       leading: ClipRRect(
                         borderRadius: BorderRadius.circular(8.0),
                         child: CachedNetworkImage(
                           imageUrl: podcast.artworkUrl, width: 50, height: 50, fit: BoxFit.cover,
-                          placeholder: (c, u) => Container(width: 50, height: 50, color: Colors.white.withOpacity(0.1), child: Icon(Icons.podcasts, color: Colors.white54, size: 30)),
-                          errorWidget: (c, u, e) => Container(width: 50, height: 50, color: Colors.white.withOpacity(0.1), child: Icon(Icons.broken_image, color: Colors.white54, size: 30)),
+                          placeholder: (c, u) => Container(width: 50, height: 50, color: Colors.white.withValues(alpha: 0.1), child: Icon(Icons.podcasts, color: Colors.white54, size: 30)),
+                          errorWidget: (c, u, e) => Container(width: 50, height: 50, color: Colors.white.withValues(alpha: 0.1), child: Icon(Icons.broken_image, color: Colors.white54, size: 30)),
                         ),
                       ),
-                      title: Text(podcast.title, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white)),
-                      subtitle: Text(podcast.artistName, style: TextStyle(color: Colors.white.withOpacity(0.8))),
+                      title: Text(
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          podcast.title, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white)),
+                      subtitle: Text(
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          podcast.artistName, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13)),
                       onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => PodcastDetailScreen(podcast: podcast))),
+                      trailing: IconButton(onPressed: () => {}, icon: Icon(Icons.remove_circle_rounded)),
                     ),
                   );
                 },
@@ -1292,14 +1317,14 @@ class _HomeScreenState extends State<HomeScreen> {
               builder: (context, currentEpisode, child) => currentEpisode != null ? MiniPlayer(currentEpisode: currentEpisode) : const SizedBox.shrink(),
             ),
           ],
-        ),
       ),
       floatingActionButton: FloatingActionButton(
+        shape: CircleBorder(),
         onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PodcastSearchScreen())),
         tooltip: 'Add Podcast',
         child: const Icon(Icons.add), // FAB icon color defaults to theme's foreground for FAB
       ),
-    );
+    )]);
   }
 }
 
@@ -1359,10 +1384,10 @@ class _PodcastSearchScreenState extends State<PodcastSearchScreen> {
                       style: const TextStyle(color: Colors.white),
                       decoration: InputDecoration(
                         hintText: 'Search iTunes...',
-                        hintStyle: TextStyle(color: Colors.white.withOpacity(0.7)),
-                        prefixIcon: Icon(Icons.search, color: Colors.white.withOpacity(0.7)),
+                        hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+                        prefixIcon: Icon(Icons.search, color: Colors.white.withValues(alpha: 0.7)),
                         suffixIcon: _searchController.text.isNotEmpty
-                            ? IconButton(icon: Icon(Icons.clear, color: Colors.white.withOpacity(0.7)), onPressed: () {
+                            ? IconButton(icon: Icon(Icons.clear, color: Colors.white.withValues(alpha: 0.7)), onPressed: () {
                           _searchController.clear();
                           setState(() { _searchResults = []; _message = 'Search for podcasts on iTunes.'; });
                         }) : null,
@@ -1391,12 +1416,12 @@ class _PodcastSearchScreenState extends State<PodcastSearchScreen> {
                                       borderRadius: BorderRadius.circular(6.0),
                                       child: CachedNetworkImage(
                                         imageUrl: podcast.artworkUrl, width: 50, height: 50, fit: BoxFit.cover,
-                                        placeholder: (c,u) => Container(width:50, height:50, color: Colors.white.withOpacity(0.1), child: const Icon(Icons.image_search, color: Colors.white54)),
-                                        errorWidget: (c,u,e) => Container(width:50, height:50, color: Colors.white.withOpacity(0.1), child: const Icon(Icons.broken_image, color: Colors.white54)),
+                                        placeholder: (c,u) => Container(width:50, height:50, color: Colors.white.withValues(alpha: 0.1), child: const Icon(Icons.image_search, color: Colors.white54)),
+                                        errorWidget: (c,u,e) => Container(width:50, height:50, color: Colors.white.withValues(alpha: 0.1), child: const Icon(Icons.broken_image, color: Colors.white54)),
                                       ),
                                     ),
                                     title: Text(podcast.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.white)),
-                                    subtitle: Text(podcast.artistName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withOpacity(0.8))),
+                                    subtitle: Text(podcast.artistName, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
                                     trailing: IconButton(
                                       icon: Icon(isSubscribed ? Icons.check_circle : Icons.add_circle_outline, color: isSubscribed ? Colors.greenAccent : Colors.white70, size: 28),
                                       tooltip: isSubscribed ? 'Subscribed' : 'Subscribe',
@@ -1514,23 +1539,22 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
                   ? Center(child: Padding(padding: const EdgeInsets.all(16.0), child: Text(_errorMessage, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.orangeAccent))))
                   : _episodes.isEmpty
                   ? Center(child: Padding(padding: const EdgeInsets.all(16.0), child: Text('No episodes found for this podcast.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white70))))
-                  : ListView.separated(
+                  : ListView.builder(
                 padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
                 itemCount: _episodes.length,
-                separatorBuilder: (c, i) => Divider(color: Colors.white.withOpacity(0.2), indent: 16, endIndent: 16),
                 itemBuilder: (context, index) {
                   final episode = _episodes[index];
                   final isCurrent = appState.currentEpisodeFromAudioService?.guid == episode.guid || appState.currentEpisodeFromAudioService?.audioUrl == episode.audioUrl;
                   final isPlaying = isCurrent && appState.isPlayingFromAudioService;
                   return Card( // Uses themed Card
                     child: ListTile(
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 0),
                       leading: ClipRRect(
                         borderRadius: BorderRadius.circular(8.0),
                         child: CachedNetworkImage(
                           imageUrl: episode.artworkUrl ?? widget.podcast.artworkUrl, width: 60, height: 60, fit: BoxFit.cover,
-                          placeholder: (c,u) => Container(width:60, height:60, color: Colors.white.withOpacity(0.1), child: const Icon(Icons.mic_none, color: Colors.white54, size: 30)),
-                          errorWidget: (c,u,e) => Container(width:60, height:60, color: Colors.white.withOpacity(0.1), child: const Icon(Icons.broken_image, color: Colors.white54, size: 30)),
+                          placeholder: (c,u) => Container(width:60, height:60, color: Colors.white.withValues(alpha: 0.1), child: const Icon(Icons.mic_none, color: Colors.white54, size: 30)),
+                          errorWidget: (c,u,e) => Container(width:60, height:60, color: Colors.white.withValues(alpha: 0.1), child: const Icon(Icons.broken_image, color: Colors.white54, size: 30)),
                         ),
                       ),
                       title: Text(episode.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.white)),
@@ -1585,7 +1609,7 @@ class AppDrawer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Drawer(
-      backgroundColor: Colors.deepPurple.shade800.withOpacity(0.95),
+      backgroundColor: Colors.black45.withValues(alpha: 0.95),
       child: ListView(
         padding: EdgeInsets.zero,
         children: <Widget>[
@@ -1594,11 +1618,11 @@ class AppDrawer extends StatelessWidget {
                 gradient: LinearGradient( // Using a similar gradient for drawer header
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [Colors.deepPurple.shade700, Colors.deepPurple.shade500],
+                  colors: [Colors.amber.shade900, Colors.amber.shade700],
                 )
             ),
             child: const Text(
-              'Podcast App Menu',
+              'Podsink2',
               style: TextStyle(
                 color: Colors.white,
                 fontSize: 24,
@@ -1649,7 +1673,6 @@ class PlayingHistoryScreen extends StatelessWidget {
       ),
       body: Container(
         decoration: kAppGradientBackground,
-        padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + kToolbarHeight),
         child: Consumer<AppState>(
           builder: (context, appState, child) {
             if (appState.playedHistory.isEmpty) {
@@ -1671,7 +1694,7 @@ class PlayingHistoryScreen extends StatelessWidget {
 
 
                 return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 4),
                   child: ListTile(
                     leading: ClipRRect(
                       borderRadius: BorderRadius.circular(4.0),
@@ -1680,15 +1703,15 @@ class PlayingHistoryScreen extends StatelessWidget {
                         width: 50,
                         height: 50,
                         fit: BoxFit.cover,
-                        placeholder: (c,u) => Container(width:50, height:50, color: Colors.white.withOpacity(0.1), child: Icon(Icons.music_note, color: Colors.white54)),
-                        errorWidget: (c,u,e) => Container(width:50, height:50, color: Colors.white.withOpacity(0.1), child: Icon(Icons.broken_image, color: Colors.white54)),
+                        placeholder: (c,u) => Container(width:50, height:50, color: Colors.white.withValues(alpha: 0.1), child: Icon(Icons.music_note, color: Colors.white54)),
+                        errorWidget: (c,u,e) => Container(width:50, height:50, color: Colors.white.withValues(alpha: 0.1), child: Icon(Icons.broken_image, color: Colors.white54)),
                       ),
                     ),
                     title: Text(item.episodeTitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(item.podcastTitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withOpacity(0.8), fontSize: 12)),
+                        Text(item.podcastTitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12)),
                         const SizedBox(height: 4),
                         if (totalDuration != null && totalDuration != Duration.zero)
                           Column(
@@ -1696,23 +1719,23 @@ class PlayingHistoryScreen extends StatelessWidget {
                             children: [
                               LinearProgressIndicator(
                                 value: progress,
-                                backgroundColor: Colors.white.withOpacity(0.3),
-                                valueColor: AlwaysStoppedAnimation<Color>(Colors.deepPurpleAccent.shade100),
+                                backgroundColor: Colors.white.withValues(alpha: 0.3),
+                                valueColor: AlwaysStoppedAnimation<Color>(Colors.amber.shade100),
                                 minHeight: 3,
                               ),
                               const SizedBox(height: 2),
                               Text(
                                 'Listened: ${_formatDuration(lastPosition)} / ${_formatDuration(totalDuration)}',
-                                style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.7)),
+                                style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.7)),
                               ),
                             ],
                           )
                         else
                           Text(
                             'Listened: ${_formatDuration(lastPosition)}',
-                            style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.7)),
+                            style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.7)),
                           ),
-                        Text('Last Played: ${DateFormat.yMd().add_jm().format(item.lastPlayedDate.toLocal())}', style: TextStyle(fontSize: 10, color: Colors.white.withOpacity(0.6))),
+                        Text('Last Played: ${DateFormat.yMd().add_jm().format(item.lastPlayedDate.toLocal())}', style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.6))),
                       ],
                     ),
                     trailing: Row(
@@ -1772,13 +1795,13 @@ class MiniPlayer extends StatelessWidget {
       },
       child: Material(
         elevation: 10.0,
-        color: Colors.black.withOpacity(0.3), // Themed MiniPlayer background
+        color: Colors.black.withValues(alpha: 0.3), // Themed MiniPlayer background
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 8.0),
           height: 70,
           // color: Colors.grey[50], // Old color
           decoration: BoxDecoration(
-            border: Border(top: BorderSide(color: Colors.white.withOpacity(0.2), width: 0.5)),
+            border: Border(top: BorderSide(color: Colors.white.withValues(alpha: 0.2), width: 0.5)),
           ),
           child: Row(
             children: [
@@ -1786,8 +1809,8 @@ class MiniPlayer extends StatelessWidget {
                 borderRadius: BorderRadius.circular(6.0),
                 child: CachedNetworkImage(
                   imageUrl: currentEpisode.artworkUrl ?? 'https://placehold.co/60x60/E0E0E0/B0B0B0?text=Art', width: 50, height: 50, fit: BoxFit.cover,
-                  placeholder: (c,u) => Container(width:50, height:50, color: Colors.white.withOpacity(0.1), child: const Icon(Icons.music_note, color: Colors.white54)),
-                  errorWidget: (c,u,e) => Container(width:50, height:50, color: Colors.white.withOpacity(0.1), child: const Icon(Icons.broken_image, color: Colors.white54)),
+                  placeholder: (c,u) => Container(width:50, height:50, color: Colors.white.withValues(alpha: 0.1), child: const Icon(Icons.music_note, color: Colors.white54)),
+                  errorWidget: (c,u,e) => Container(width:50, height:50, color: Colors.white.withValues(alpha: 0.1), child: const Icon(Icons.broken_image, color: Colors.white54)),
                 ),
               ),
               const SizedBox(width: 12),
@@ -1795,9 +1818,15 @@ class MiniPlayer extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start, mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Text(currentEpisode.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: Colors.white)),
-                    const SizedBox(height: 2),
-                    Text(currentEpisode.podcastTitle, style: TextStyle(fontSize: 12.5, color: Colors.white.withOpacity(0.8)), overflow: TextOverflow.ellipsis, maxLines: 1),
+                    Text(
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        currentEpisode.title,
+                        style:
+                        const TextStyle(fontWeight: FontWeight.bold, fontSize: 14.5, color: Colors.white)
+                    ),
+                    //const SizedBox(height: 2),
+                    //Text(currentEpisode.podcastTitle, style: TextStyle(fontSize: 12.5, color: Colors.white.withValues(alpha: 0.8)), overflow: TextOverflow.ellipsis, maxLines: 1),
                   ],
                 ),
               ),
@@ -1818,7 +1847,7 @@ class MiniPlayer extends StatelessWidget {
                   }
               ),
               IconButton(
-                icon: Icon(Icons.stop_circle_outlined, size: 32, color: Colors.white.withOpacity(0.7)),
+                icon: Icon(Icons.stop_circle_outlined, size: 32, color: Colors.white.withValues(alpha: 0.7)),
                 tooltip: 'Stop', onPressed: appState.stopPlayback,
               ),
             ],
@@ -1830,11 +1859,16 @@ class MiniPlayer extends StatelessWidget {
 }
 
 /// Full Screen Player
-class FullScreenPlayerScreen extends StatelessWidget {
+class FullScreenPlayerScreen extends StatefulWidget {
   final Episode episode;
 
   const FullScreenPlayerScreen({super.key, required this.episode});
 
+  @override
+  State<FullScreenPlayerScreen> createState() => _FullScreenPlayerScreen();
+}
+
+class _FullScreenPlayerScreen extends State<FullScreenPlayerScreen> {
   String _formatDuration(Duration? duration) {
     if (duration == null) return '--:--';
     String twoDigits(int n) => n.toString().padLeft(2, '0');
@@ -1851,63 +1885,95 @@ class FullScreenPlayerScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final audioHandler = Provider.of<AudioHandler>(context, listen: false);
+    final widthScale = 0.6;
 
     return Scaffold(
       extendBodyBehindAppBar: true, // Let gradient go behind AppBar
       appBar: AppBar(
-        // backgroundColor: Colors.deepPurple.shade700, // Already transparent from theme
-        // foregroundColor: Colors.white, // Already set in theme
-        title: Text(episode.podcastTitle, style: const TextStyle(fontSize: 16)),
+        title: Text(widget.episode.podcastTitle, style: const TextStyle(fontSize: 16)),
         elevation: 0,
       ),
       body: Container(
         padding: const EdgeInsets.all(16.0),
         decoration: kAppGradientBackground, // Use the global gradient
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisAlignment: MainAxisAlignment.start,
           children: <Widget>[
             SizedBox(height: kToolbarHeight + MediaQuery.of(context).padding.top), // Space for AppBar and StatusBar
-            // Podcast Artwork
-            ClipRRect(
-              borderRadius: BorderRadius.circular(12.0),
-              child: CachedNetworkImage(
-                imageUrl: episode.artworkUrl ?? 'https://placehold.co/300x300/E0E0E0/B0B0B0?text=No+Art',
-                width: MediaQuery.of(context).size.width * 0.7,
-                height: MediaQuery.of(context).size.width * 0.7,
-                fit: BoxFit.cover,
-                placeholder: (context, url) => Container(
-                  width: MediaQuery.of(context).size.width * 0.7,
-                  height: MediaQuery.of(context).size.width * 0.7,
-                  color: Colors.white.withOpacity(0.1),
-                  child: const Icon(Icons.music_note, size: 100, color: Colors.white54),
+            SizedBox(height: MediaQuery.sizeOf(context).height * 0.4, child:
+            CarouselView.weighted(
+              consumeMaxWeight: true,
+              elevation: 2,
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(10))),
+              backgroundColor: Colors.black.withValues(alpha: 0.3),
+              scrollDirection: Axis.horizontal,
+              flexWeights: [4,1],
+              itemSnapping: true,
+              children: [
+                // Podcast Artwork
+                ClipRRect(
+                  borderRadius: BorderRadius.circular(6.0),
+                  child: CachedNetworkImage(
+                    imageUrl: widget.episode.artworkUrl ?? 'https://placehold.co/300x300/E0E0E0/B0B0B0?text=No+Art',
+                    width: MediaQuery.of(context).size.width * widthScale,
+                    height: MediaQuery.of(context).size.width * widthScale,
+                    fit: BoxFit.fill,
+                    placeholder: (context, url) => Container(
+                      width: MediaQuery.of(context).size.width * widthScale,
+                      height: MediaQuery.of(context).size.width * widthScale,
+                      color: Colors.white.withValues(alpha: 0.1),
+                      child: const Icon(Icons.music_note, size: 100, color: Colors.white54),
+                    ),
+                    errorWidget: (context, url, error) => Container(
+                      width: MediaQuery.of(context).size.width * widthScale,
+                      height: MediaQuery.of(context).size.width * widthScale,
+                      color: Colors.white.withValues(alpha: 0.1),
+                      child: const Icon(Icons.broken_image, size: 100, color: Colors.white54),
+                    ),
+                  ),
                 ),
-                errorWidget: (context, url, error) => Container(
-                  width: MediaQuery.of(context).size.width * 0.7,
-                  height: MediaQuery.of(context).size.width * 0.7,
-                  color: Colors.white.withOpacity(0.1),
-                  child: const Icon(Icons.broken_image, size: 100, color: Colors.white54),
+                // Episode Description (Scrollable)
+                Expanded(
+                  child: Container(
+                    padding: const EdgeInsets.all(12.0),
+                    decoration: BoxDecoration(
+                      color: Colors.black.withValues(alpha: 0.2), // Slightly darker for readability
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    child: SingleChildScrollView(
+                      child: Text(
+                        widget.episode.description.isNotEmpty ? widget.episode.description : "No description available.",
+                        style: const TextStyle(fontSize: 15, color: Colors.white, height: 1.5),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 24),
+              ],
+            )),
 
-            // Episode Title
-            Text(
-              episode.title,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.white),
-              textAlign: TextAlign.center,
-              maxLines: 3, // Allow more lines for episode title
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 8),
+            Container(margin: EdgeInsets.symmetric(horizontal: 16),
+                child: Column(children: [
+                  const SizedBox(height: 24),
+                  // Podcast Title (Artist)
+                  Text(
+                    widget.episode.podcastTitle,
+                    style: TextStyle(fontSize: 14, color: Colors.white.withValues(alpha: 0.8)),
+                    textAlign: TextAlign.center,
+                  ),
 
-            // Podcast Title (Artist)
-            Text(
-              episode.podcastTitle,
-              style: TextStyle(fontSize: 16, color: Colors.white.withOpacity(0.8)),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 24),
+                  const SizedBox(height: 16),
+
+                  // Episode Title
+                  Text(
+                    widget.episode.title,
+                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.white),
+                    textAlign: TextAlign.center,
+                    maxLines: 3, // Allow more lines for episode title
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ])),
+
+            Spacer(),
 
             // Seek Bar and Time Labels
             StreamBuilder<MediaItem?>(
@@ -1920,14 +1986,14 @@ class FullScreenPlayerScreen extends StatelessWidget {
                       final playbackState = playbackStateSnapshot.data;
                       final position = playbackState?.position ?? Duration.zero;
                       final bufferedPosition = playbackState?.bufferedPosition ?? Duration.zero;
-                      final totalDuration = currentMediaItem?.duration ?? episode.duration ?? Duration.zero;
+                      final totalDuration = currentMediaItem?.duration ?? widget.episode.duration ?? Duration.zero;
 
                       return Column(
                         children: [
                           SliderTheme(
                             data: SliderTheme.of(context).copyWith(
                               activeTrackColor: Colors.white,
-                              inactiveTrackColor: Colors.white.withOpacity(0.3),
+                              inactiveTrackColor: Colors.white.withValues(alpha: 0.3),
                               thumbColor: Colors.white,
                               overlayColor: Colors.white.withAlpha(0x29),
                               thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8.0),
@@ -1949,8 +2015,8 @@ class FullScreenPlayerScreen extends StatelessWidget {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text(_formatDuration(position), style: TextStyle(color: Colors.white.withOpacity(0.8))),
-                                Text(_formatDuration(totalDuration), style: TextStyle(color: Colors.white.withOpacity(0.8))),
+                                Text(_formatDuration(position), style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
+                                Text(_formatDuration(totalDuration), style: TextStyle(color: Colors.white.withValues(alpha: 0.8))),
                               ],
                             ),
                           ),
@@ -2015,24 +2081,6 @@ class FullScreenPlayerScreen extends StatelessWidget {
                 );
               },
             ),
-            const SizedBox(height: 24),
-            // Episode Description (Scrollable)
-            Expanded(
-              child: Container(
-                padding: const EdgeInsets.all(12.0),
-                decoration: BoxDecoration(
-                  color: Colors.black.withOpacity(0.2), // Slightly darker for readability
-                  borderRadius: BorderRadius.circular(8.0),
-                ),
-                child: SingleChildScrollView(
-                  child: Text(
-                    episode.description.isNotEmpty ? episode.description : "No description available.",
-                    style: const TextStyle(fontSize: 15, color: Colors.white, height: 1.5),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 16), // Bottom padding
           ],
         ),
       ),
