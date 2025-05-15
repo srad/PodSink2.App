@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:podsink2/widgets/podsink2.dart';
+import 'package:podsink2/presentation/shared_widgets/podsink2.dart';
 
 void main() {
   testWidgets('Counter increments smoke test', (WidgetTester tester) async {

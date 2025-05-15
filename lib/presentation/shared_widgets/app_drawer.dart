@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:podsink2/screens/playing_history.dart';
+import 'package:podsink2/presentation/screens/playing_history.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});

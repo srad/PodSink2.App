@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:podsink2/app_state.dart';
-import 'package:podsink2/audio_handler_implementation.dart';
+import 'package:podsink2/core/app_state.dart';
+import 'package:podsink2/core/audio_handler_implementation.dart';
 import 'package:podsink2/extensions/color_material_color.dart';
-import 'package:podsink2/services/database_service.dart';
-import 'package:podsink2/widgets/podsink2.dart';
+import 'package:podsink2/presentation/shared_widgets/podsink2.dart';
 import 'package:provider/provider.dart';
 import 'package:just_audio_background/just_audio_background.dart';
 import 'package:audio_service/audio_service.dart';
@@ -45,7 +44,7 @@ Future<void> main() async {
   try {
     // kReleaseMode check is unusual here, typically init is for all modes.
     // Keeping as per user's last provided code.
-    if (Foundation.kReleaseMode) {
+    if (Foundation.kReleaseMode && false) {
       debugPrint("main: Calling JustAudioBackground.init()...");
       await JustAudioBackground.init(
         androidNotificationChannelId: 'com.mycompany.myapp.channel.audio',
@@ -77,9 +76,6 @@ Future<void> main() async {
     }
     _audioHandlerSingleton ??= AudioPlayerHandlerImpl();
   }
-
-  await DatabaseService.instance.database;
-  debugPrint("main: Database initialized.");
 
   runApp(
     MultiProvider(

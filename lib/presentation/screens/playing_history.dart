@@ -1,8 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:podsink2/app_state.dart';
+import 'package:podsink2/core/app_state.dart';
 import 'package:podsink2/main.dart';
 import 'package:provider/provider.dart';
 
@@ -27,9 +26,6 @@ class PlayingHistoryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       extendBodyBehindAppBar: true,
-      appBar: AppBar(
-        title: const Text('Playing History'),
-      ),
       body: Container(
         decoration: kAppGradientBackground,
         child: Consumer<AppState>(
@@ -39,7 +35,8 @@ class PlayingHistoryScreen extends StatelessWidget {
                 child: Text('No playing history yet.', style: TextStyle(color: Colors.white70, fontSize: 16)),
               );
             }
-            return ListView.builder(
+            return ListView.separated(
+              separatorBuilder: (context, index) => Divider(color: Colors.transparent, height: 5),
               itemCount: appState.playedHistory.length,
               itemBuilder: (context, index) {
                 final item = appState.playedHistory[index];
@@ -53,7 +50,7 @@ class PlayingHistoryScreen extends StatelessWidget {
 
 
                 return Card(
-                  margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
                   child: ListTile(
                     contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 0),
                     leading: ClipRRect(

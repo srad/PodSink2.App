@@ -1,14 +1,13 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:podsink2/app_state.dart';
-import 'package:podsink2/models/episode.dart';
-import 'package:podsink2/screens/fullscreen_player.dart';
+import 'package:podsink2/core/app_state.dart';
+import 'package:podsink2/domain/models/episode.dart';
+import 'package:podsink2/presentation/screens/fullscreen_player.dart';
 import 'package:provider/provider.dart';
 
 class MiniPlayer extends StatelessWidget {
-  final Episode currentEpisode;
+  final EpisodeModel currentEpisode;
 
   const MiniPlayer({super.key, required this.currentEpisode});
 

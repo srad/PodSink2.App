@@ -1,17 +1,17 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:flutter/cupertino.dart';
 
-class Episode {
+class EpisodeModel {
   final String guid;
   final String podcastTitle;
   final String title;
   final String description;
   final String audioUrl;
   final DateTime? pubDate;
-  final String? artworkUrl;
+  String? artworkUrl;
   final Duration? duration;
 
-  Episode({
+  EpisodeModel({
     required this.guid,
     required this.podcastTitle,
     required this.title,
@@ -22,7 +22,7 @@ class Episode {
     this.duration,
   });
 
-  factory Episode.fromRssItem(dynamic item, String podcastTitleFromFeed, String podcastArtworkFromFeed) {
+  factory EpisodeModel.fromRssItem(dynamic item, String podcastTitleFromFeed, String podcastArtworkFromFeed) {
     String? extractedAudioUrl;
     if (item.enclosure?.url != null) {
       extractedAudioUrl = item.enclosure!.url!;
@@ -32,7 +32,7 @@ class Episode {
           ?.url;
     }
 
-    return Episode(
+    return EpisodeModel(
       guid: item.guid ?? UniqueKey().toString(),
       podcastTitle: podcastTitleFromFeed,
       title: item.title ?? 'Unknown Episode',
@@ -40,7 +40,7 @@ class Episode {
       audioUrl: extractedAudioUrl ?? '',
       pubDate: item.pubDate,
       artworkUrl: item.itunes?.image?.href ?? podcastArtworkFromFeed,
-      duration: _parseDuration(item.itunes?.duration?.toString()),
+      duration: item.itunes?.duration,
     );
   }
 

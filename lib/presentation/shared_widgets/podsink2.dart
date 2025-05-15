@@ -1,6 +1,6 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:podsink2/screens/home.dart';
+import 'package:podsink2/presentation/screens/home.dart';
 
 class PodSink2 extends StatelessWidget {
   const PodSink2({super.key});

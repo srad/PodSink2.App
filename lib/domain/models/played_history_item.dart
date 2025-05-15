@@ -1,4 +1,4 @@
-class PlayedEpisodeHistoryItem {
+class PlayedEpisodeHistoryItemModel {
   final String guid; // Episode GUID, primary key
   final String podcastTitle;
   final String episodeTitle;
@@ -8,7 +8,16 @@ class PlayedEpisodeHistoryItem {
   int lastPositionMs; // Store as int (milliseconds)
   DateTime lastPlayedDate;
 
-  PlayedEpisodeHistoryItem({required this.guid, required this.podcastTitle, required this.episodeTitle, required this.audioUrl, this.artworkUrl, this.totalDurationMs, required this.lastPositionMs, required this.lastPlayedDate});
+  PlayedEpisodeHistoryItemModel({
+    required this.guid,
+    required this.podcastTitle,
+    required this.episodeTitle,
+    required this.audioUrl,
+    this.artworkUrl,
+    this.totalDurationMs,
+    required this.lastPositionMs,
+    required this.lastPlayedDate, //
+  });
 
   Map<String, dynamic> toMap() {
     return {
@@ -23,8 +32,8 @@ class PlayedEpisodeHistoryItem {
     };
   }
 
-  factory PlayedEpisodeHistoryItem.fromMap(Map<String, dynamic> map) {
-    return PlayedEpisodeHistoryItem(
+  factory PlayedEpisodeHistoryItemModel.fromMap(Map<String, dynamic> map) {
+    return PlayedEpisodeHistoryItemModel(
       guid: map['guid'] as String,
       podcastTitle: map['podcastTitle'] as String,
       episodeTitle: map['episodeTitle'] as String,

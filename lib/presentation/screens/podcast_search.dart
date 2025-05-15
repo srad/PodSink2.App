@@ -1,13 +1,12 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
-import 'package:podsink2/app_state.dart';
+import 'package:podsink2/core/app_state.dart';
+import 'package:podsink2/domain/models/episode.dart';
+import 'package:podsink2/domain/models/podcast.dart';
+import 'package:podsink2/domain/services/itunes_service.dart';
 import 'package:podsink2/main.dart';
-import 'package:podsink2/models/episode.dart';
-import 'package:podsink2/models/podcast.dart';
-import 'package:podsink2/screens/podcast_detail.dart';
-import 'package:podsink2/services/itunes_service.dart';
-import 'package:podsink2/widgets/mini_player.dart';
+import 'package:podsink2/presentation/screens/podcast_detail.dart';
+import 'package:podsink2/presentation/shared_widgets/mini_player.dart';
 import 'package:provider/provider.dart';
 
 class PodcastSearchScreen extends StatefulWidget {
@@ -19,7 +18,7 @@ class PodcastSearchScreen extends StatefulWidget {
 class _PodcastSearchScreenState extends State<PodcastSearchScreen> {
   final TextEditingController _searchController = TextEditingController();
   final ItunesService _itunesService = ItunesService();
-  List<Podcast> _searchResults = [];
+  List<PodcastModel> _searchResults = [];
   bool _isLoading = false;
   String _message = 'Search iTunes for podcasts.';
 
@@ -127,7 +126,7 @@ class _PodcastSearchScreenState extends State<PodcastSearchScreen> {
                 ],
               ),
             ),
-            Selector<AppState, Episode?>(
+            Selector<AppState, EpisodeModel?>(
               selector: (_, appStateWatch) => appStateWatch.currentEpisodeFromAudioService,
               builder: (context, currentEpisode, child) => currentEpisode != null ? MiniPlayer(currentEpisode: currentEpisode) : const SizedBox.shrink(),
             ),

@@ -1,12 +1,12 @@
 import 'package:flutter/cupertino.dart';
-import 'package:podsink2/models/episode.dart';
-import 'package:podsink2/models/podcast.dart';
 import 'package:http/http.dart' as http;
+import 'package:podsink2/domain/models/episode.dart';
+import 'package:podsink2/domain/models/podcast.dart';
 import 'package:webfeed_plus/domain/atom_feed.dart';
 import 'package:webfeed_plus/domain/rss_feed.dart';
 
 class RssParserService {
-  Future<List<Episode>> fetchEpisodes(Podcast podcast) async {
+  Future<List<EpisodeModel>> fetchEpisodes(PodcastModel podcast) async {
     if (podcast.feedUrl.isEmpty) return [];
     try {
       final response = await http.get(Uri.parse(podcast.feedUrl));
@@ -16,7 +16,7 @@ class RssParserService {
           if (rssFeed.items == null || rssFeed.items!.isEmpty) {
             return _parseAtomFeed(response.body, podcast);
           }
-          return rssFeed.items!.map((item) => Episode.fromRssItem(item, rssFeed.title ?? podcast.title, rssFeed.image?.url ?? podcast.artworkUrl)).toList();
+          return rssFeed.items!.map((item) => EpisodeModel.fromRssItem(item, rssFeed.title ?? podcast.title, rssFeed.image?.url ?? podcast.artworkUrl)).toList();
         } catch (e) {
           return _parseAtomFeed(response.body, podcast);
         }
@@ -28,13 +28,13 @@ class RssParserService {
     }
   }
 
-  List<Episode> _parseAtomFeed(String xmlString, Podcast podcast) {
+  List<EpisodeModel> _parseAtomFeed(String xmlString, PodcastModel podcast) {
     try {
       var atomFeed = AtomFeed.parse(xmlString);
       if (atomFeed.items == null || atomFeed.items!.isEmpty) return [];
       return atomFeed.items!.map((item) {
         String? audioUrl = item.links?.firstWhere((link) => link.rel == 'enclosure' && (link.type?.startsWith('audio/') ?? false))?.href;
-        return Episode(
+        return EpisodeModel(
           guid: item.id ?? UniqueKey().toString(),
           podcastTitle: atomFeed.title ?? podcast.title,
           title: item.title ?? 'Unknown Episode',
