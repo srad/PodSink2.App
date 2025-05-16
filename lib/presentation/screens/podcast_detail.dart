@@ -90,6 +90,40 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
         padding: EdgeInsets.only(top: MediaQuery.of(context).padding.top + kToolbarHeight),
         child: Column(
           children: [
+            ListTile(
+              leading: CachedNetworkImage(
+                imageUrl: widget.podcast.artworkUrl ?? 'https://placehold.co/300x300/E0E0E0/B0B0B0?text=No+Art',
+                fit: BoxFit.fill,
+                placeholder:
+                    (context, url) => Container(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      child: const Icon(Icons.music_note, size: 100, color: Colors.white54), //
+                    ),
+                errorWidget:
+                    (context, url, error) => Container(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      child: const Icon(Icons.broken_image, size: 100, color: Colors.white54), //
+                    ), //
+              ),
+              title: Text(widget.podcast.title),
+              subtitle: Container(
+                margin: EdgeInsets.fromLTRB(0, 10, 0, 0),
+                child: Row(children: [TextButton.icon(
+                  icon: Icon(Icons.remove_circle_outline_rounded, size: 16),
+                  label: Text('Unsubscribe', style: TextStyle(fontSize: 14)),
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.red.withValues(alpha: 0.9),
+                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    minimumSize: Size(0, 0), // Allow small size
+                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  ),
+                  onPressed: () {},
+                )]),
+              ),
+            ),
+
+            Divider(color: Colors.black.withValues(alpha: 0.2), thickness: 2),
+
             Expanded(
               child:
                   _isLoading
@@ -98,8 +132,9 @@ class _PodcastDetailScreenState extends State<PodcastDetailScreen> {
                       ? Center(child: Padding(padding: const EdgeInsets.all(16.0), child: Text(_errorMessage, textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.orangeAccent))))
                       : _episodes.isEmpty
                       ? Center(child: Padding(padding: const EdgeInsets.all(16.0), child: Text('No episodes found for this podcast.', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white70))))
-                      : ListView.builder(
-                        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 8.0),
+                      : ListView.separated(
+                        separatorBuilder: (context, index) => Divider(color: Colors.transparent, height: 5),
+                        padding: const EdgeInsets.symmetric(vertical: 6.0, horizontal: 6.0),
                         itemCount: _episodes.length,
                         itemBuilder: (context, index) {
                           final episode = _episodes[index];

@@ -52,7 +52,7 @@ class AppState extends ChangeNotifier {
 
     _playbackStateSubscription = _audioHandler.playbackState.listen((playbackState) {
       _updateHistoryForCurrentEpisode(playbackState); // Handles specific events like 'completed'
-      if (playbackState.updatePosition.inSeconds & 10 == 0) {
+      if (playbackState.updatePosition.inSeconds % 10 == 0) {
         final mediaItem = _audioHandler.mediaItem.value;
         if (mediaItem != null) {
           _handleMediaItemChangeForHistory(mediaItem, playbackState);

@@ -34,10 +34,10 @@ class EpisodeItem extends StatelessWidget {
     final appState = Provider.of<AppState>(context);
 
     return Card(
+      margin: EdgeInsets.symmetric(vertical: 0, horizontal: 2),
       color: Colors.black.withValues(alpha: 0.2),
-      // Uses themed Card
       child: ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 0),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 0),
         leading: ClipRRect(
           borderRadius: BorderRadius.circular(8.0),
           child: CachedNetworkImage(
@@ -63,23 +63,23 @@ class EpisodeItem extends StatelessWidget {
           episode.title,
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
-          style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.white),
+          style: const TextStyle(fontWeight: FontWeight.w500, color: Colors.white, fontSize: 14),
         ),
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const SizedBox(height: 4),
             Text(
               episode.podcastTitle,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white70),
+              style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.white70, fontSize: 10),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
+            const SizedBox(height: 4),
             Row(
               children: [
                 if (episode.pubDate != null) ...[
                   Row(children: [
-                    const Icon(Icons.date_range_rounded, size: 15, color: Colors.white60), // Added color for consistency
+                    const Icon(Icons.date_range_rounded, size: 12, color: Colors.white60), // Added color for consistency
                     const SizedBox(width: 5),
                     Text(
                       DateFormat.yMMMd().format(episode.pubDate!),
@@ -90,7 +90,7 @@ class EpisodeItem extends StatelessWidget {
                 ],
                 if (episode.duration != null)
                   Row(children: [
-                    const Icon(Icons.av_timer_rounded, size: 15, color: Colors.white60), // Added color for consistency
+                    const Icon(Icons.av_timer_rounded, size: 12, color: Colors.white60), // Added color for consistency
                     const SizedBox(width: 5),
                     Text(
                       overflow: TextOverflow.ellipsis,
@@ -103,10 +103,11 @@ class EpisodeItem extends StatelessWidget {
           ],
         ),
         trailing: IconButton(
+          visualDensity: VisualDensity.compact,
           icon: Icon(
             isPlaying ? Icons.pause_circle_filled : Icons.play_circle_fill,
             color: Colors.white,
-            size: 36,
+            size: 32,
           ),
           tooltip: isPlaying ? 'Pause' : 'Play',
           onPressed: () => isCurrent ? appState.togglePlayPause() : appState.playEpisode(episode),

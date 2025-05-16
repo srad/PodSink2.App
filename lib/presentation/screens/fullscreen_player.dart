@@ -3,10 +3,12 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:dots_indicator/dots_indicator.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_html/flutter_html.dart';
 import 'package:podsink2/domain/models/episode.dart';
 import 'package:podsink2/main.dart';
 import 'package:provider/provider.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class PlayerScreenData {
   final MediaItem? mediaItem;
@@ -50,6 +52,15 @@ class _FullScreenPlayerScreen extends State<FullScreenPlayerScreen> {
     final minutes = twoDigits(duration.inMinutes.remainder(60));
     final seconds = twoDigits(duration.inSeconds.remainder(60));
     return [if (hours > 0) hours.toString(), minutes, seconds].join(':');
+  }
+
+  Future<void> _launchUrl(String url) async {
+    final uri = Uri.parse(url);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else {
+      throw 'Could not launch $url';
+    }
   }
 
   @override
@@ -98,7 +109,16 @@ class _FullScreenPlayerScreen extends State<FullScreenPlayerScreen> {
                         color: Colors.black.withValues(alpha: 0.2), // Slightly darker for readability
                         borderRadius: BorderRadius.circular(8.0),
                       ),
-                      child: SingleChildScrollView(child: Text(widget.episode.description.isNotEmpty ? widget.episode.description : "No description available.", style: const TextStyle(fontSize: 15, color: Colors.white, height: 1.5))),
+                      child: SingleChildScrollView(
+                        child: Html(
+                          data: widget.episode.description.isNotEmpty ? widget.episode.description : "No description available.", //
+                          onLinkTap: (url, attributes, element) {
+                            if (url != null) {
+                              _launchUrl(url);
+                            }
+                          },
+                        ),
+                      ),
                     ),
                   ),
                 ],

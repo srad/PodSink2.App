@@ -157,7 +157,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
         // Your Scaffold on top
         Scaffold(
           appBar: AppBar(
-            title: const Text('PodSink'),
+            title: Row(children: [const Text('PodSink'), Spacer(), Image(height: 40, width: 40, image: AssetImage('assets/icons/podsink.png'))]),
             backgroundColor: Colors.transparent,
             elevation: 0,
             actions: [
@@ -165,13 +165,6 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                 icon: const Icon(Icons.add_circle_outline),
                 tooltip: 'Add new podcast',
                 onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PodcastSearchScreen())), //
-              ),
-              // IconButton to toggle reordering mode
-              IconButton(
-                // Change icon based on reordering state
-                icon: Icon(_isReordering ? Icons.check : Icons.reorder),
-                tooltip: _isReordering ? 'Done reordering' : 'Reorder list',
-                onPressed: _toggleReorder, // Call _toggleReorder when pressed
               ),
             ],
             bottom: TabBar(
@@ -197,7 +190,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                   children: [
                     // --- Tab 0: Subscriptions ---
                     RefreshIndicator(
-                      onRefresh: _loadSubscriptions,
+                      onRefresh: _loadLatestEpisodes,
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.start,
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -212,8 +205,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
                                 return latestEpisodes.isEmpty
                                     ? Center(child: Padding(padding: const EdgeInsets.all(16.0), child: Text('No episodes found', textAlign: TextAlign.center, style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.white70))))
-                                    : ListView.builder(
-                                      padding: const EdgeInsets.symmetric(vertical: 2.0, horizontal: 2.0),
+                                    : ListView.separated(
+                                      separatorBuilder: (context, index) => Divider(color: Colors.transparent, height: 5),
+                                      padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 4.0),
                                       itemCount: latestEpisodes.length,
                                       itemBuilder: (context, index) {
                                         final episode = latestEpisodes[index];
@@ -237,18 +231,34 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Padding(
-                            padding: const EdgeInsets.symmetric(horizontal: 8.0, vertical: 8.0),
-                            child: TextField(
-                              controller: _searchController,
-                              style: const TextStyle(color: Colors.white), // Text input color
-                              decoration: InputDecoration(
-                                hintText: 'Search subscribed...',
-                                hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
-                                prefixIcon: Icon(Icons.search, color: Colors.white.withValues(alpha: 0.7)),
-                                suffixIcon: _searchController.text.isNotEmpty ? IconButton(onPressed: () => setState(() => _searchController.text = ''), icon: Icon(Icons.close_rounded, color: Colors.white)) : null,
-                                // Borders are themed globally
-                              ),
-                              onChanged: (value) => setState(() => _searchController.text = value), //
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: TextField(
+                                    controller: _searchController,
+                                    style: const TextStyle(color: Colors.white),
+                                    decoration: InputDecoration(
+                                      contentPadding: EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                                      hintText: 'Search subs ...',
+                                      hintStyle: TextStyle(color: Colors.white.withValues(alpha: 0.7)),
+                                      prefixIcon: Icon(Icons.search, color: Colors.white.withValues(alpha: 0.7)),
+                                      suffixIcon: _searchController.text.isNotEmpty ? IconButton(onPressed: () => setState(() => _searchController.text = ''), icon: Icon(Icons.close_rounded, color: Colors.white)) : null,
+                                      // Borders are themed globally
+                                    ),
+                                    autofocus: false,
+                                    autocorrect: false,
+                                    onChanged: (value) => setState(() => _searchController.text = value), //
+                                  ),
+                                ),
+                                // IconButton to toggle reordering mode
+                                IconButton(
+                                  // Change icon based on reordering state
+                                  icon: Icon(_isReordering ? Icons.check : Icons.reorder_rounded, size: 30),
+                                  tooltip: _isReordering ? 'Done reordering' : 'Reorder list',
+                                  onPressed: _toggleReorder, // Call _toggleReorder when pressed
+                                ),
+                              ],
                             ),
                           ),
                           Expanded(
@@ -275,7 +285,7 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                 if (value == LoadingState.loaded && _isReordering) {
                                   return ReorderableListView.builder(
                                     itemCount: subscribedPodcasts.length,
-                                    padding: const EdgeInsets.all(8),
+                                    padding: const EdgeInsets.symmetric(vertical: 0, horizontal: 8),
                                     // Adjusted padding
                                     proxyDecorator: (child, i, animation) {
                                       // Your custom proxy decorator
@@ -296,8 +306,9 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
                                 }
 
                                 return ImplicitlyAnimatedList<PodcastModel>(
+                                  separatorBuilder: (context, index) => Divider(color: Colors.transparent, height: 5),
                                   // Ensure PodcastModel is the correct type
-                                  padding: const EdgeInsets.all(8),
+                                  padding: const EdgeInsets.all(2),
                                   items: subscribedPodcasts,
                                   areItemsTheSame: (a, b) => a.feedUrl == b.feedUrl,
                                   itemBuilder: (context, animation, item, i) {
@@ -343,14 +354,19 @@ class _HomeScreenState extends State<HomeScreen> with SingleTickerProviderStateM
 
   Widget _buildPodcastItem(final PodcastModel podcast, final AppState appState, final int index) {
     return Card(
-      color: Colors.black.withValues(alpha: 0.2),
       key: Key(podcast.id),
+      margin: EdgeInsets.symmetric(vertical: 0, horizontal: 2),
+      color: Colors.black.withValues(alpha: 0.2),
       child: ListTile(
-        contentPadding: EdgeInsets.symmetric(vertical: 0, horizontal: 8),
-        leading: ClipRRect(borderRadius: BorderRadius.circular(8.0), child: CachedNetworkImage(imageUrl: podcast.artworkUrl, width: 50, height: 50, fit: BoxFit.cover, placeholder: (c, u) => Container(width: 50, height: 50, color: Colors.white.withValues(alpha: 0.1), child: Icon(Icons.podcasts, color: Colors.white54, size: 30)), errorWidget: (c, u, e) => Container(width: 50, height: 50, color: Colors.white.withValues(alpha: 0.1), child: Icon(Icons.broken_image, color: Colors.white54, size: 30)))),
-        title: Text(maxLines: 1, overflow: TextOverflow.ellipsis, podcast.title, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white)),
+        contentPadding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 0),
+        visualDensity: VisualDensity.compact,
+        leading: ClipRRect(
+          borderRadius: BorderRadius.circular(8.0),
+          child: CachedNetworkImage(imageUrl: podcast.artworkUrl, width: 50, height: 50, fit: BoxFit.cover, placeholder: (c, u) => Container(width: 50, height: 50, color: Colors.white.withValues(alpha: 0.1), child: Icon(Icons.podcasts, color: Colors.white54, size: 30)), errorWidget: (c, u, e) => Container(width: 50, height: 50, color: Colors.white.withValues(alpha: 0.1), child: Icon(Icons.broken_image, color: Colors.white54, size: 30))),
+        ),
+        title: Text(maxLines: 1, overflow: TextOverflow.ellipsis, podcast.title, style: const TextStyle(fontWeight: FontWeight.w600, color: Colors.white, fontSize: 14)),
         //
-        subtitle: Text(maxLines: 1, overflow: TextOverflow.ellipsis, podcast.artistName, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 13)),
+        subtitle: Text(maxLines: 1, overflow: TextOverflow.ellipsis, podcast.artistName, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12)),
         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => PodcastDetailScreen(podcast: podcast))),
         trailing:
             _isReordering

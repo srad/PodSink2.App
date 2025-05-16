@@ -14,8 +14,16 @@ class PodcastsDao extends DatabaseAccessor<AppDatabase> with _$PodcastsDaoMixin 
   Stream<List<Podcast>> watchSubscribedPodcasts() =>
       (select(podcasts)..orderBy([(t) => OrderingTerm(expression: t.sortOrder)])).watch();
 
-  Future<int> subscribePodcast(PodcastsCompanion podcast) =>
-      into(podcasts).insert(podcast, mode: InsertMode.replace);
+  Future<int> subscribePodcast(PodcastsCompanion podcast) async {
+    // Add the row count as the default "sortOrder".
+    final currentCount = await (select(podcasts).get()).then((rows) => rows.length);
+
+    final newEntry = podcast.copyWith(
+      sortOrder: Value(currentCount),
+    );
+
+    return into(podcasts).insert(newEntry, mode: InsertMode.replace);
+  }
 
   Future<int> unsubscribePodcast(String id) =>
       (delete(podcasts)..where((tbl) => tbl.id.equals(id))).go();
