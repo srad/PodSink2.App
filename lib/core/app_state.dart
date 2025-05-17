@@ -1,200 +1,167 @@
 import 'dart:async';
-
+import 'package:get_it/get_it.dart';
+import 'package:flutter/foundation.dart';
 import 'package:audio_service/audio_service.dart';
-import 'package:drift/drift.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:podsink2/core/audio_handler_implementation.dart';
-import 'package:podsink2/data/datasources/app_database.dart';
+import 'package:podsink2/domain/models/bookmarked_episode.dart';
 import 'package:podsink2/domain/models/episode.dart';
 import 'package:podsink2/domain/models/played_history_item.dart';
 import 'package:podsink2/domain/models/podcast.dart';
+import 'package:podsink2/domain/services/drift_db_service.dart';
 import 'package:podsink2/domain/services/rss_parser_service.dart';
 
-class AppState extends ChangeNotifier {
+class AppState implements Disposable {
   final AudioPlayerHandlerImpl _audioHandler;
-  List<PodcastModel> _subscribedPodcasts = [];
-  List<PlayedEpisodeHistoryItemModel> _playedHistory = [];
-  List<EpisodeModel> _latestEpisodes = [];
-  List<EpisodeModel> _bookmarkedEpisodes = [];
+  final DriftDbService _dbService;
+
+  final ValueNotifier<List<PodcastModel>> subscribedPodcastsNotifier = ValueNotifier([]);
+  final ValueNotifier<EpisodeModel?> currentEpisodeNotifier = ValueNotifier(null);
+  final ValueNotifier<List<EpisodeModel>> latestEpisodesNotifier = ValueNotifier([]);
+  final ValueNotifier<List<BookmarkedEpisodeModel>> bookmarkedEpisodesNotifier = ValueNotifier([]);
+  final ValueNotifier<bool> isPlayingNotifier;
+  final ValueNotifier<List<PlayedEpisodeHistoryItemModel>> playedHistoryNotifier = ValueNotifier([]);
 
   StreamSubscription? _mediaItemSubscription;
   StreamSubscription? _playbackStateSubscription;
 
-  final _rssService = RssParserService();
-  final _database = AppDatabase();
+  final RssParserService _rssService = RssParserService();
 
   MediaItem? _previousMediaItemForHistory;
   Duration _previousMediaItemLastPosition = Duration.zero;
 
-  EpisodeModel? get currentEpisodeFromAudioService {
-    final mediaItem = _audioHandler.mediaItem.value;
-    if (mediaItem == null) return null;
-    return _episodeFromMediaItem(mediaItem);
-  }
-
-  bool get isPlayingFromAudioService => _audioHandler.playbackState.value.playing;
-
-  List<PodcastModel> get subscribedPodcasts => _subscribedPodcasts;
-
-  List<PlayedEpisodeHistoryItemModel> get playedHistory => _playedHistory;
-
-  List<EpisodeModel> get latestEpisodes => _latestEpisodes;
-
-  List<EpisodeModel> get bookmarkedEpisodes => _bookmarkedEpisodes;
-
-  AppState(this._audioHandler) {
+  AppState(this._audioHandler, this._dbService) : isPlayingNotifier = ValueNotifier(_audioHandler.playbackState.value.playing) {
     _initializeState();
   }
 
-  Future<void> _initializeState() async {
-    await loadSubscribedPodcasts();
-    await loadPlayedHistory();
+  void _initializeState() {
+    _mediaItemSubscription = _audioHandler.mediaItem.listen((mediaItem) {
+      _updateCurrentEpisodeNotifier(mediaItem);
+      _handleMediaItemChangeForHistory(mediaItem, _audioHandler.playbackState.value);
+    });
 
     _playbackStateSubscription = _audioHandler.playbackState.listen((playbackState) {
-      _updateHistoryForCurrentEpisode(playbackState); // Handles specific events like 'completed'
+      _updateIsPlayingNotifier(playbackState);
+      _updateHistoryForCurrentEpisode(playbackState);
       if (playbackState.updatePosition.inSeconds % 10 == 0) {
         final mediaItem = _audioHandler.mediaItem.value;
         if (mediaItem != null) {
           _handleMediaItemChangeForHistory(mediaItem, playbackState);
         }
       }
-      notifyListeners();
     });
+
+    // Initial update for current episode
+    _updateCurrentEpisodeNotifier(_audioHandler.mediaItem.value);
   }
 
-  EpisodeModel? _episodeFromMediaItem(MediaItem mediaItem) {
-    for (var podcast in _subscribedPodcasts) {
-      if (podcast.episodes.isNotEmpty) {
-        for (var episode in podcast.episodes) {
-          if ((mediaItem.extras?['guid'] != null && episode.guid == mediaItem.extras!['guid']) || episode.audioUrl == mediaItem.id) {
-            return EpisodeModel(
-              guid: episode.guid,
-              podcastTitle: episode.podcastTitle,
-              title: episode.title,
-              description: mediaItem.extras?['description'] ?? episode.description,
-              audioUrl: episode.audioUrl,
-              pubDate: episode.pubDate,
-              artworkUrl: episode.artworkUrl,
-              duration: episode.duration, //
-            );
-          }
-        }
-      }
-    }
-    // Fallback if episode not in subscribed list (e.g. played from search before full details fetched)
-    return EpisodeModel(
-      guid: mediaItem.extras?['guid'] as String? ?? mediaItem.id,
-      podcastTitle: mediaItem.album ?? mediaItem.extras?['podcastTitle'] ?? 'Unknown Podcast',
-      title: mediaItem.title ?? 'Unknown Title',
-      description: mediaItem.extras?['description'] as String? ?? 'Description not available.',
-      audioUrl: mediaItem.id,
-      artworkUrl: mediaItem.artUri?.toString() ?? mediaItem.extras?['artworkUrl'],
-      duration: mediaItem.duration, //
-    );
-  }
-
-  Future<void> subscribeToPodcast(PodcastModel podcast) async {
-    final isAlreadySubscribed = await _database.podcastsDao.isSubscribed(podcast.id);
-    if (!isAlreadySubscribed) {
-      await _database.podcastsDao.subscribePodcast(
-        PodcastsCompanion(
-          id: Value(podcast.id),
-          sortOrder: Value.absentIfNull(podcast.sortOrder),
-          feedUrl: Value(podcast.feedUrl),
-          title: Value(podcast.title),
-          artistName: Value(podcast.artistName),
-          artworkUrl: Value(podcast.artworkUrl), //
-        ),
-      );
-      _subscribedPodcasts.add(podcast);
-      _subscribedPodcasts.sort((a, b) => a.title.compareTo(b.title));
-      notifyListeners();
-    } else {
-      debugPrint("Podcast ${podcast.title} is already subscribed.");
+  void _updateIsPlayingNotifier(PlaybackState playbackState) {
+    final newIsPlaying = playbackState.playing && playbackState.processingState != AudioProcessingState.completed && playbackState.processingState != AudioProcessingState.idle;
+    if (isPlayingNotifier.value != newIsPlaying) {
+      isPlayingNotifier.value = newIsPlaying;
     }
   }
 
-  Future<void> unsubscribeFromPodcast(PodcastModel podcast) async {
-    await _database.podcastsDao.unsubscribePodcast(podcast.id);
-    _subscribedPodcasts.removeWhere((p) => p.id == podcast.id);
-    notifyListeners();
-  }
-
-  Future<void> loadSubscribedPodcasts() async {
-    final podcasts = await _database.podcastsDao.getSubscribedPodcasts();
-
-    _subscribedPodcasts =
-        podcasts
-            .map(
-              (podcast) => PodcastModel(id: podcast.id, title: podcast.title, sortOrder: podcast.sortOrder, artistName: podcast.artistName, artworkUrl: podcast.artworkUrl, feedUrl: podcast.feedUrl), //
-            )
-            .toList();
-
-    notifyListeners();
-    debugPrint("Loaded ${_subscribedPodcasts.length} subscribed podcasts from DB.");
-  }
-
-  // --- History Methods ---
-  Future loadPlayedHistory() async {
-    final history = await _database.playedHistoryEpisodesDao.getHistoryItems();
-    _playedHistory =
-        history
-            .map(
-              (item) => PlayedEpisodeHistoryItemModel(
-                audioUrl: item.audioUrl,
-                episodeTitle: item.episodeTitle,
-                lastPlayedDate: item.lastPlayedDate,
-                lastPositionMs: item.lastPositionMs,
-                podcastTitle: item.podcastTitle,
-                guid: item.guid,
-                artworkUrl: item.artworkUrl,
-                totalDurationMs: item.totalDurationMs, //
-              ),
-            )
-            .toList();
-
-    notifyListeners();
-    debugPrint("Loaded ${_playedHistory.length} history items from DB.");
+  Future<void> loadPlayedHistory() async {
+    final history = await _dbService.getHistory();
+    playedHistoryNotifier.value = history;
   }
 
   Future<void> addEpisodeToHistory(PlayedEpisodeHistoryItemModel historyItem) async {
-    // Only add/update if significant playback happened (e.g., > 5 seconds or not at the very beginning)
     if (historyItem.lastPositionMs > 5000 || (historyItem.totalDurationMs != null && historyItem.lastPositionMs >= historyItem.totalDurationMs! - 5000)) {
-      await _database.playedHistoryEpisodesDao.addOrUpdateHistoryItem(
-        PlayedHistoryEpisodesCompanion(
-          guid: Value(historyItem.guid),
-          totalDurationMs: Value(historyItem.totalDurationMs),
-          podcastTitle: Value(historyItem.podcastTitle),
-          lastPositionMs: Value(historyItem.lastPositionMs),
-          lastPlayedDate: Value(historyItem.lastPlayedDate),
-          episodeTitle: Value(historyItem.episodeTitle),
-          audioUrl: Value(historyItem.audioUrl),
-          artworkUrl: Value(historyItem.artworkUrl), //
-        ),
-      );
-      // Update in-memory list
-      final index = _playedHistory.indexWhere((item) => item.guid == historyItem.guid);
+      // Assuming dbService handles the actual add/update persistently
+      await _dbService.addOrUpdateHistoryItem(historyItem);
+
+      final currentHistory = List<PlayedEpisodeHistoryItemModel>.from(playedHistoryNotifier.value);
+      final index = currentHistory.indexWhere((item) => item.guid == historyItem.guid);
       if (index != -1) {
-        _playedHistory[index] = historyItem;
+        currentHistory[index] = historyItem;
       } else {
-        _playedHistory.add(historyItem);
+        currentHistory.add(historyItem);
       }
-      _playedHistory.sort((a, b) => b.lastPlayedDate.compareTo(a.lastPlayedDate)); // Sort by most recent
-      notifyListeners();
+      currentHistory.sort((a, b) => b.lastPlayedDate.compareTo(a.lastPlayedDate));
+      playedHistoryNotifier.value = currentHistory;
     }
   }
 
   Future<void> removeEpisodeFromHistory(String guid) async {
-    await _database.playedHistoryEpisodesDao.deleteHistoryItem(guid);
-    _playedHistory.removeWhere((item) => item.guid == guid);
-    notifyListeners();
+    await _dbService.removeEpisodeFromHistory(guid);
+    playedHistoryNotifier.value.removeWhere((item) => item.guid == guid);
   }
 
-  Future<void> clearAllPlayedHistory() async {
-    await _database.playedHistoryEpisodesDao.clearAllHistory();
-    _playedHistory.clear();
-    notifyListeners();
-    debugPrint("Cleared all played history.");
+  void _updateCurrentEpisodeNotifier(MediaItem? mediaItem) {
+    if (mediaItem == null) {
+      currentEpisodeNotifier.value = null;
+    } else {
+      currentEpisodeNotifier.value = _episodeFromMediaItem(mediaItem);
+    }
+  }
+
+  EpisodeModel? _episodeFromMediaItem(MediaItem mediaItem) {
+    // Find in subscribed podcasts first
+    for (var podcast in subscribedPodcastsNotifier.value) {
+      // Use internal _subscribedPodcasts
+      final episode = podcast.episodes.firstWhere((ep) => (mediaItem.extras?['guid'] != null && ep.guid == mediaItem.extras!['guid']) || ep.audioUrl == mediaItem.id);
+      if (episode.guid.isNotEmpty) {
+        // Check if a valid episode was found
+        return EpisodeModel(guid: episode.guid, podcastTitle: episode.podcastTitle, title: episode.title, description: episode.description, audioUrl: episode.audioUrl, pubDate: episode.pubDate, artworkUrl: episode.artworkUrl, duration: episode.duration);
+      }
+    }
+
+    // Fallback if not found in subscribed list or for partial data
+    if (mediaItem.id.isEmpty) return null; // Cannot create an episode without an ID
+
+    return EpisodeModel(
+      guid: mediaItem.extras?['guid'] as String? ?? mediaItem.id,
+      podcastTitle: mediaItem.album ?? mediaItem.extras?['podcastTitle'] as String? ?? 'Unknown Podcast',
+      title: mediaItem.title,
+      description: mediaItem.extras?['description'] as String? ?? 'Description not available.',
+      audioUrl: mediaItem.id,
+      artworkUrl: mediaItem.artUri?.toString() ?? mediaItem.extras?['artworkUrl'] as String?,
+      duration: mediaItem.duration,
+      pubDate: mediaItem.extras?['pubDate'] != null ? DateTime.tryParse(mediaItem.extras!['pubDate']) : null, //
+    );
+  }
+
+  Future<void> subscribeToPodcast(PodcastModel podcast) async {
+    final insertedPodcast = await _dbService.subscribePodcast(podcast);
+    if (insertedPodcast != null) {
+      subscribedPodcastsNotifier.value = [...subscribedPodcastsNotifier.value, insertedPodcast];
+    }
+  }
+
+  Future<void> unsubscribeFromPodcast(PodcastModel podcast) async {
+    await _dbService.unsubscribeFromPodcast(podcast.id);
+
+    subscribedPodcastsNotifier.value =
+        subscribedPodcastsNotifier.value
+            .where((p) => p.id != podcast.id) //
+            .toList();
+  }
+
+  Future<void> loadSubscribedPodcasts() async {
+    final podcastsFromDb = await _dbService.getSubscribedPodcasts();
+    subscribedPodcastsNotifier.value = podcastsFromDb;
+  }
+
+  Future<void> addEpisodeBookmark(BookmarkedEpisodeModel episode) async {
+    await _dbService.addOrReplaceBookmarkedEpisode(episode);
+    final index = bookmarkedEpisodesNotifier.value.indexWhere((item) => item.guid == episode.guid);
+
+    if (index != -1) {
+      // Replace
+      final copy = List<BookmarkedEpisodeModel>.from(bookmarkedEpisodesNotifier.value);
+      copy[index] = episode;
+      bookmarkedEpisodesNotifier.value = copy;
+    } else {
+      // Add new
+      bookmarkedEpisodesNotifier.value = [...bookmarkedEpisodesNotifier.value, episode];
+    }
+  }
+
+  Future<void> removeEpisodeBookmark(String guid) async {
+    await _dbService.removeBookmark(guid);
+
+    bookmarkedEpisodesNotifier.value = bookmarkedEpisodesNotifier.value.where((item) => item.guid != guid).toList();
   }
 
   void _handleMediaItemChangeForHistory(MediaItem? newMediaItem, PlaybackState currentPlaybackState) {
@@ -318,50 +285,80 @@ class AppState extends ChangeNotifier {
 
   Future<void> seek(Duration position) async {
     await _audioHandler.seek(position);
-    // Optionally update history on seek, or wait for pause/stop
   }
 
-  @override
-  void dispose() {
-    // Before disposing, ensure the current episode's final position is logged
-    if (_audioHandler.mediaItem.value != null && _audioHandler.playbackState.value.position > Duration.zero) {
-      _updateHistoryForCurrentEpisode(_audioHandler.playbackState.value);
+  Future<void> swapPodcastsSortOrder(int oldIndex, int newIndex) async {
+    // 1. Validate indices
+    if (oldIndex < 0 || oldIndex >= subscribedPodcastsNotifier.value.length || newIndex < 0 || newIndex >= subscribedPodcastsNotifier.value.length) {
+      debugPrint("Error: Invalid indices. Old: $oldIndex, New: $newIndex, Length: ${subscribedPodcastsNotifier.value.length}");
+      // For invalid arguments, throwing an ArgumentError here is appropriate
+      // as it's a precondition violation, not a runtime failure of an external system.
+      throw ArgumentError("Invalid indices provided for swapping podcasts.");
     }
 
-    _mediaItemSubscription?.cancel();
-    _playbackStateSubscription?.cancel();
-    _database.close();
-    super.dispose();
+    final String podcastIdAtOldIndex = subscribedPodcastsNotifier.value[oldIndex].id;
+    final String podcastIdAtNewIndex = subscribedPodcastsNotifier.value[newIndex].id;
+
+    // 2. Attempt to persist the swap in the database.
+    //    If _dbService.swapPodcastSortOrder throws an exception, it will propagate up.
+    await _dbService.swapPodcastSortOrder(podcastIdAtOldIndex, podcastIdAtNewIndex);
+
+    // 3. If DB was successful, update the notifier.
+    final currentPodcasts = List<PodcastModel>.from(subscribedPodcastsNotifier.value);
+    final PodcastModel podcastToMove = currentPodcasts.removeAt(oldIndex);
+    int actualInsertionIndex = (oldIndex < newIndex) ? newIndex - 1 : newIndex;
+    currentPodcasts.insert(actualInsertionIndex, podcastToMove);
+    subscribedPodcastsNotifier.value = currentPodcasts;
   }
 
-  Future reorderSubscribedPodcasts(int oldIndex, int newIndex) async {
-    throw UnimplementedError();
-  }
+  // Load from all feeds the first entry. This is rather slow, because for each podcast the entire feed is fetched.
+  Future<void> loadLatestEpisodes() async {
+    final podcasts = await _dbService.getSubscribedPodcasts();
+    List<EpisodeModel> episodes = [];
 
-  Future loadBookmarks() async {}
-
-  Future loadLatestEpisodes() async {
-    final podcasts = await _database.podcastsDao.getSubscribedPodcasts();
-    _latestEpisodes.clear();
-
-    for(final podcast in podcasts) {
+    for (final podcast in podcasts) {
       try {
-        final fetchedEpisodes = await _rssService.fetchEpisodes(PodcastModel(
-          id: podcast.id,
-          artworkUrl: podcast.artworkUrl,
-          sortOrder: podcast.sortOrder,
-          artistName: podcast.artistName,
-          title: podcast.title,
-          feedUrl: podcast.feedUrl, //
-        ));
+        final fetchedEpisodes = await _rssService.fetchEpisodes(
+          PodcastModel(
+            id: podcast.id,
+            artworkUrl: podcast.artworkUrl,
+            sortOrder: podcast.sortOrder,
+            artistName: podcast.artistName,
+            title: podcast.title,
+            feedUrl: podcast.feedUrl, //
+          ),
+        );
 
         final firstEpisode = fetchedEpisodes.firstOrNull;
         if (firstEpisode != null) {
-          _latestEpisodes.add(firstEpisode);
+          episodes.add(firstEpisode);
         }
-      } catch(e) {
+      } catch (e) {
         debugPrint('$e');
       }
     }
+    latestEpisodesNotifier.value = episodes;
   }
+
+  Future<void> loadBookmarks() async {
+    bookmarkedEpisodesNotifier.value = await _dbService.getBookmarkedEpisodes();
+  }
+
+  @override
+  FutureOr onDispose() {
+    if (_audioHandler.mediaItem.value != null && _audioHandler.playbackState.value.position > Duration.zero) {
+      _updateHistoryForCurrentEpisode(_audioHandler.playbackState.value);
+    }
+    _mediaItemSubscription?.cancel();
+    _playbackStateSubscription?.cancel();
+
+    // Dispose ValueNotifiers
+    subscribedPodcastsNotifier.dispose();
+    currentEpisodeNotifier.dispose();
+    bookmarkedEpisodesNotifier.dispose();
+    playedHistoryNotifier.dispose();
+    isPlayingNotifier.dispose();
+  }
+
+  Future<bool> isEpisodeBookmarked(EpisodeModel episode) async => await _dbService.isEpisodeBookmarked(episode.guid);
 }

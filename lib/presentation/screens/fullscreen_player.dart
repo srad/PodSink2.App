@@ -1,12 +1,17 @@
+import 'dart:math';
+
 import 'package:audio_service/audio_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:dots_indicator/dots_indicator.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_html/flutter_html.dart';
+import 'package:get_it/get_it.dart';
+import 'package:podsink2/core/app_state.dart';
+import 'package:podsink2/core/url_utils.dart';
+import 'package:podsink2/domain/models/bookmarked_episode.dart';
 import 'package:podsink2/domain/models/episode.dart';
 import 'package:podsink2/main.dart';
-import 'package:provider/provider.dart';
 import 'package:rxdart/rxdart.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -29,6 +34,7 @@ class FullScreenPlayerScreen extends StatefulWidget {
 class _FullScreenPlayerScreen extends State<FullScreenPlayerScreen> {
   int _selectedIndex = 0;
   late final Stream<PlayerScreenData> _combinedPlayerDataStream;
+  final _isBookmarkedNotifier = ValueNotifier(false);
 
   @override
   void initState() {
@@ -36,13 +42,19 @@ class _FullScreenPlayerScreen extends State<FullScreenPlayerScreen> {
     // If audioHandler comes from Provider and might not be ready immediately,
     // ensure this stream is created when audioHandler is available.
     // However, audioHandler streams themselves handle late listening.
-    final audioHandler = Provider.of<AudioHandler>(context, listen: false);
+    final audioHandler = GetIt.I<AudioHandler>();
     _combinedPlayerDataStream = CombineLatestStream.combine2(
       audioHandler.mediaItem, // Stream<MediaItem?>
       audioHandler.playbackState, // Stream<PlaybackState> - this stream emits an initial value
       (mediaItemData, playbackStateData) => PlayerScreenData(mediaItemData, playbackStateData),
     );
+    _loadBookmark();
     super.initState();
+  }
+
+  Future _loadBookmark() async {
+    final appState = GetIt.I<AppState>();
+    _isBookmarkedNotifier.value = await appState.isEpisodeBookmarked(widget.episode);
   }
 
   String _formatDuration(Duration? duration) {
@@ -54,19 +66,18 @@ class _FullScreenPlayerScreen extends State<FullScreenPlayerScreen> {
     return [if (hours > 0) hours.toString(), minutes, seconds].join(':');
   }
 
-  Future<void> _launchUrl(String url) async {
-    final uri = Uri.parse(url);
-    if (await canLaunchUrl(uri)) {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } else {
-      throw 'Could not launch $url';
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final audioHandler = Provider.of<AudioHandler>(context, listen: false);
+    return ValueListenableBuilder(
+      valueListenable: _isBookmarkedNotifier,
+      builder: (context, isBookmarked, child) {
+        final audioHandler = GetIt.I<AudioHandler>();
+        return _build(isBookmarked, audioHandler);
+      },
+    );
+  }
 
+  Widget _build(bool isBookmarked, AudioHandler audioHandler) {
     return Scaffold(
       extendBodyBehindAppBar: true, // Let gradient go behind AppBar
       appBar: AppBar(title: Text(widget.episode.podcastTitle, style: const TextStyle(fontSize: 16)), elevation: 0),
@@ -111,10 +122,10 @@ class _FullScreenPlayerScreen extends State<FullScreenPlayerScreen> {
                       ),
                       child: SingleChildScrollView(
                         child: Html(
-                          data: widget.episode.description.isNotEmpty ? widget.episode.description : "No description available.", //
+                          data: widget.episode.description ?? "No description available.", //
                           onLinkTap: (url, attributes, element) {
                             if (url != null) {
-                              _launchUrl(url);
+                              UrlUtils.openUrl(url);
                             }
                           },
                         ),
@@ -261,11 +272,11 @@ class _FullScreenPlayerScreen extends State<FullScreenPlayerScreen> {
                 return Row(
                   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                   children: <Widget>[
-                    IconButton(onPressed: () => {}, icon: Icon(Icons.bookmark_add_rounded, size: 40)),
+                    IconButton(onPressed: () => _toggleBookmark(isBookmarked), icon: Icon(isBookmarked ? Icons.bookmark_remove_rounded : Icons.bookmark_add_rounded, size: 40, color: Colors.white)),
                     IconButton(
                       icon: const Icon(Icons.replay_10_rounded, color: Colors.white, size: 40),
                       onPressed: () {
-                        audioHandler.seek(position - const Duration(seconds: 10));
+                        audioHandler.seek(Duration(seconds: max(0, position.inSeconds - 10)));
                       },
                     ),
                     //IconButton(icon: const Icon(Icons.skip_previous, color: Colors.white, size: 40), onPressed: audioHandler.skipToPrevious),
@@ -286,8 +297,7 @@ class _FullScreenPlayerScreen extends State<FullScreenPlayerScreen> {
                       icon: const Icon(Icons.forward_10_rounded, color: Colors.white, size: 40),
                       onPressed: () {
                         final totalDuration = audioHandler.mediaItem.value?.duration ?? Duration.zero;
-                        final newPosition = position + const Duration(seconds: 10);
-                        audioHandler.seek(newPosition > totalDuration ? totalDuration : newPosition);
+                        audioHandler.seek(Duration(milliseconds: min(totalDuration.inMilliseconds, position.inMilliseconds + Duration(seconds: 10).inMilliseconds)));
                       },
                     ),
                   ],
@@ -298,5 +308,31 @@ class _FullScreenPlayerScreen extends State<FullScreenPlayerScreen> {
         ),
       ),
     );
+  }
+
+  Future<void> _toggleBookmark(bool isBookmarked) async {
+    final appState = GetIt.I<AppState>();
+    final audioHandler = GetIt.I<AudioHandler>();
+
+    if (isBookmarked) {
+      await appState.removeEpisodeBookmark(widget.episode.guid);
+      _isBookmarkedNotifier.value = false;
+      return;
+    }
+
+    await appState.addEpisodeBookmark(
+      BookmarkedEpisodeModel(
+        guid: widget.episode.guid,
+        episodeTitle: widget.episode.title,
+        lastPositionMs: audioHandler.playbackState.value.updatePosition.inMilliseconds,
+        lastPlayedDate: DateTime.now(),
+        artworkUrl: widget.episode.artworkUrl,
+        audioUrl: widget.episode.audioUrl,
+        podcastTitle: widget.episode.podcastTitle,
+        totalDurationMs: widget.episode.duration?.inMilliseconds,
+        description: widget.episode.description, //
+      ),
+    );
+    _isBookmarkedNotifier.value = true;
   }
 }

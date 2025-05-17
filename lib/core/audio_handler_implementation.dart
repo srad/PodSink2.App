@@ -1,9 +1,8 @@
 import 'dart:async';
 
 import 'package:audio_service/audio_service.dart';
-import 'package:flutter/cupertino.dart'; // Should be 'package:flutter/material.dart' or 'widgets.dart' if using debugPrint universally
+import 'package:flutter/cupertino.dart';
 import 'package:just_audio/just_audio.dart' as ja;
-import 'package:rxdart/rxdart.dart'; // Aliased just_audio
 
 // see: https://github.com/ryanheise/just_audio/blob/minor/just_audio/example/lib/example_playlist.dart
 

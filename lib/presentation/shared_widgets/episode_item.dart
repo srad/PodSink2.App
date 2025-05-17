@@ -1,10 +1,9 @@
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import 'package:intl/intl.dart';
 import 'package:podsink2/core/app_state.dart';
 import 'package:podsink2/domain/models/episode.dart';
-import 'package:provider/provider.dart';
 
 class EpisodeItem extends StatelessWidget {
   final EpisodeModel episode;
@@ -31,10 +30,13 @@ class EpisodeItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appState = Provider.of<AppState>(context);
+    final appState = GetIt.I<AppState>();
 
     return Card(
-      margin: EdgeInsets.symmetric(vertical: 0, horizontal: 2),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(4.0), // Adjust the radius as needed
+      ),
+      margin: EdgeInsets.symmetric(vertical: 0, horizontal: 0),
       color: Colors.black.withValues(alpha: 0.2),
       child: ListTile(
         contentPadding: const EdgeInsets.symmetric(horizontal: 6.0, vertical: 0),

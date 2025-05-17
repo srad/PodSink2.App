@@ -7,6 +7,7 @@ class PlayedHistoryEpisodes extends Table {
   TextColumn get episodeTitle => text()();
   TextColumn get audioUrl => text()();
   TextColumn get artworkUrl => text().nullable()();
+  TextColumn get description => text().nullable()();
   IntColumn get totalDurationMs => integer().nullable()();
   IntColumn get lastPositionMs => integer()();
   DateTimeColumn get lastPlayedDate => dateTime()();

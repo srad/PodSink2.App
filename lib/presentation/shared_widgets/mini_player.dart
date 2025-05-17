@@ -1,10 +1,10 @@
 import 'package:audio_service/audio_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
+import 'package:get_it/get_it.dart';
 import 'package:podsink2/core/app_state.dart';
 import 'package:podsink2/domain/models/episode.dart';
 import 'package:podsink2/presentation/screens/fullscreen_player.dart';
-import 'package:provider/provider.dart';
 
 class MiniPlayer extends StatelessWidget {
   final EpisodeModel currentEpisode;
@@ -13,8 +13,8 @@ class MiniPlayer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final appState = Provider.of<AppState>(context, listen: false);
-    final audioHandler = Provider.of<AudioHandler>(context, listen: false);
+    final appState = GetIt.I<AppState>();
+    final audioHandler = GetIt.I<AudioHandler>();
 
     return GestureDetector(
       onTap: () {

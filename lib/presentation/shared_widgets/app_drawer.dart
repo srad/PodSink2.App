@@ -1,6 +1,7 @@
 import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:podsink2/presentation/screens/playing_history.dart';
+import 'package:podsink2/presentation/shared_widgets/animated_logo.dart';
 
 class AppDrawer extends StatelessWidget {
   const AppDrawer({super.key});
@@ -14,20 +15,18 @@ class AppDrawer extends StatelessWidget {
         children: <Widget>[
           DrawerHeader(
             decoration: BoxDecoration(
-                gradient: LinearGradient( // Using a similar gradient for drawer header
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                  colors: [Colors.amber.shade900, Colors.amber.shade700],
-                )
-            ),
-            child: const Text(
-              'Podsink2',
-              style: TextStyle(
-                color: Colors.white,
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
+              gradient: LinearGradient(
+                // Using a similar gradient for drawer header
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Colors.amber.shade500, Colors.amber.shade900], //
               ),
             ),
+            child: Row(children: [
+            Text('Podsink', style: TextStyle(color: Colors.white, fontSize: 34, fontWeight: FontWeight.w800, fontStyle: FontStyle.italic)),
+              Spacer(),
+              AnimatedLogoWidget(frameAssetPaths: ['assets/icons/animation_1.png', 'assets/icons/animation_2.png', 'assets/icons/animation_3.png', 'assets/icons/animation_4.png'], width: 100, frameDuration: Duration(milliseconds: 700)),//
+            ]),
           ),
           ListTile(
             leading: const Icon(Icons.history, color: Colors.white70),

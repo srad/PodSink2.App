@@ -7,7 +7,9 @@ class Podcasts extends Table {
   TextColumn get artistName => text()();
   TextColumn get artworkUrl => text()();
   TextColumn get feedUrl => text()();
-  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+  TextColumn get podcastUrl => text().nullable()();
+  IntColumn get sortOrder => integer()();
+  DateTimeColumn get lastViewed => dateTime().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

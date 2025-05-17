@@ -2,8 +2,9 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:podsink2/core/app_state.dart';
+import 'package:podsink2/domain/models/played_history_item.dart';
 import 'package:podsink2/main.dart';
-import 'package:provider/provider.dart';
+import 'package:get_it/get_it.dart';
 
 class PlayingHistoryScreen extends StatelessWidget {
   const PlayingHistoryScreen({super.key});
@@ -19,20 +20,24 @@ class PlayingHistoryScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Get AppState instance once for actions and to access the notifier
+    final AppState appState = GetIt.I<AppState>();
+
     return Scaffold(
       extendBodyBehindAppBar: true,
       body: Container(
         decoration: kAppGradientBackground,
-        child: Consumer<AppState>(
-          builder: (context, appState, child) {
-            if (appState.playedHistory.isEmpty) {
+        child: ValueListenableBuilder<List<PlayedEpisodeHistoryItemModel>?>( // <--- REPLACE Consumer
+          valueListenable: appState.playedHistoryNotifier,                 // <--- LISTEN to notifier
+          builder: (context, playedHistoryItems, child) {                 // <--- GET items from notifier
+            if (playedHistoryItems == null) {
               return const Center(child: Text('No playing history yet.', style: TextStyle(color: Colors.white70, fontSize: 16)));
             }
             return ListView.separated(
               separatorBuilder: (context, index) => Divider(color: Colors.transparent, height: 5),
-              itemCount: appState.playedHistory.length,
+              itemCount: playedHistoryItems.length, // Use items from ValueListenableBuilder
               itemBuilder: (context, index) {
-                final item = appState.playedHistory[index];
+                final item = playedHistoryItems[index]; // Use item from ValueListenableBuilder
                 final totalDuration = item.totalDurationMs != null ? Duration(milliseconds: item.totalDurationMs!) : null;
                 final lastPosition = Duration(milliseconds: item.lastPositionMs);
 
@@ -42,19 +47,24 @@ class PlayingHistoryScreen extends StatelessWidget {
                 }
 
                 return Card(
-                  color: Colors.black.withValues(alpha: 0.2),
+                  color: Colors.black.withAlpha(51),
                   margin: const EdgeInsets.symmetric(horizontal: 0, vertical: 0),
                   child: ListTile(
                     contentPadding: EdgeInsets.symmetric(horizontal: 6, vertical: 0),
                     leading: ClipRRect(
                       borderRadius: BorderRadius.circular(4.0),
-                      child: CachedNetworkImage(imageUrl: item.artworkUrl ?? 'https://placehold.co/70x70/FFFFFF/000000?text=NoArt', width: 50, height: 50, fit: BoxFit.cover, placeholder: (c, u) => Container(width: 50, height: 50, color: Colors.white.withValues(alpha: 0.1), child: Icon(Icons.music_note, color: Colors.white54)), errorWidget: (c, u, e) => Container(width: 50, height: 50, color: Colors.white.withValues(alpha: 0.1), child: Icon(Icons.broken_image, color: Colors.white54))),
+                      child: CachedNetworkImage(
+                          imageUrl: item.artworkUrl ?? 'https://placehold.co/70x70/FFFFFF/000000?text=NoArt',
+                          width: 50, height: 50, fit: BoxFit.cover,
+                          placeholder: (c, u) => Container(width: 50, height: 50, color: Colors.white.withAlpha(26), child: Icon(Icons.music_note, color: Colors.white54)),
+                          errorWidget: (c, u, e) => Container(width: 50, height: 50, color: Colors.white.withAlpha(26), child: Icon(Icons.broken_image, color: Colors.white54))
+                      ),
                     ),
                     title: Text(item.episodeTitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white, fontSize: 14)),
                     subtitle: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(item.podcastTitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withValues(alpha: 0.8), fontSize: 12)),
+                        Text(item.podcastTitle, maxLines: 1, overflow: TextOverflow.ellipsis, style: TextStyle(color: Colors.white.withAlpha(204), fontSize: 12)),
                         const SizedBox(height: 4),
                         if (totalDuration != null && totalDuration != Duration.zero)
                           Column(
@@ -65,20 +75,20 @@ class PlayingHistoryScreen extends StatelessWidget {
                                   Expanded(
                                     child: LinearProgressIndicator(
                                       value: progress,
-                                      backgroundColor: Colors.white.withValues(alpha: 0.3),
+                                      backgroundColor: Colors.white.withAlpha(77),
                                       valueColor: AlwaysStoppedAnimation<Color>(Colors.amber.shade100),
-                                      minHeight: 3, //
+                                      minHeight: 3,
                                     ),
                                   ),
                                   SizedBox(width: 10),
-                                  Text('${_formatDuration(lastPosition)} / ${_formatDuration(totalDuration)}', style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.7))),
+                                  Text('${_formatDuration(lastPosition)} / ${_formatDuration(totalDuration)}', style: TextStyle(fontSize: 10, color: Colors.white.withAlpha(179))),
                                 ],
                               ),
                             ],
                           )
                         else
-                          Text('Listened: ${_formatDuration(lastPosition)}', style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.7))),
-                        Text('Last Played: ${DateFormat.yMd().format(item.lastPlayedDate.toLocal())}', style: TextStyle(fontSize: 10, color: Colors.white.withValues(alpha: 0.6))),
+                          Text('Listened: ${_formatDuration(lastPosition)}', style: TextStyle(fontSize: 10, color: Colors.white.withAlpha(179))),
+                        Text('Last Played: ${DateFormat.yMd().format(item.lastPlayedDate.toLocal())}', style: TextStyle(fontSize: 10, color: Colors.white.withAlpha(153))),
                       ],
                     ),
                     trailing: Row(
@@ -86,22 +96,22 @@ class PlayingHistoryScreen extends StatelessWidget {
                       children: [
                         IconButton(
                           visualDensity: VisualDensity.compact,
-                          icon: Icon(Icons.play_circle_rounded, color: Colors.black, size: 28),
+                          icon: Icon(Icons.play_circle_rounded, color: Colors.amber.shade200, size: 28),
                           tooltip: 'Resume',
                           onPressed: () {
+                            // AppState instance for action already fetched as 'appState'
                             appState.resumeEpisodeFromHistory(item);
                             if (Navigator.canPop(context)) {
-                              // If full screen player is not main, pop to show mini player
-                              Navigator.pop(context); // Pop history screen
+                              Navigator.pop(context);
                             }
-                            // Consider navigating to FullScreenPlayer if desired
                           },
                         ),
                         IconButton(
                           visualDensity: VisualDensity.compact,
-                          icon: Icon(Icons.delete_rounded, color: Colors.red, size: 28),
+                          icon: Icon(Icons.delete_rounded, color: Colors.red.shade300, size: 28),
                           tooltip: 'Remove from history',
                           onPressed: () {
+                            // AppState instance for action already fetched as 'appState'
                             appState.removeEpisodeFromHistory(item.guid);
                           },
                         ),

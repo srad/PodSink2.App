@@ -4,6 +4,7 @@ class PlayedEpisodeHistoryItemModel {
   final String episodeTitle;
   final String audioUrl; // To re-initiate playback if needed
   final String? artworkUrl;
+  final String? description;
   final int? totalDurationMs; // Store as int (milliseconds)
   int lastPositionMs; // Store as int (milliseconds)
   DateTime lastPlayedDate;
@@ -15,6 +16,7 @@ class PlayedEpisodeHistoryItemModel {
     required this.audioUrl,
     this.artworkUrl,
     this.totalDurationMs,
+    this.description,
     required this.lastPositionMs,
     required this.lastPlayedDate, //
   });
@@ -22,6 +24,7 @@ class PlayedEpisodeHistoryItemModel {
   Map<String, dynamic> toMap() {
     return {
       'guid': guid,
+      'description': description,
       'podcastTitle': podcastTitle,
       'episodeTitle': episodeTitle,
       'audioUrl': audioUrl,
@@ -38,6 +41,7 @@ class PlayedEpisodeHistoryItemModel {
       podcastTitle: map['podcastTitle'] as String,
       episodeTitle: map['episodeTitle'] as String,
       audioUrl: map['audioUrl'] as String,
+      description: map['description'] as String?,
       artworkUrl: map['artworkUrl'] as String?,
       totalDurationMs: map['totalDurationMs'] as int?,
       lastPositionMs: map['lastPositionMs'] as int,

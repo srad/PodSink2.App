@@ -1,4 +1,5 @@
 import 'package:drift/drift.dart';
+import 'package:flutter/cupertino.dart';
 import '../../../data/datasources/app_database.dart'; // This will be your main database class
 import '../tables/podcasts.dart';
 
@@ -14,15 +15,31 @@ class PodcastsDao extends DatabaseAccessor<AppDatabase> with _$PodcastsDaoMixin 
   Stream<List<Podcast>> watchSubscribedPodcasts() =>
       (select(podcasts)..orderBy([(t) => OrderingTerm(expression: t.sortOrder)])).watch();
 
-  Future<int> subscribePodcast(PodcastsCompanion podcast) async {
+  Future<Podcast> subscribePodcast(PodcastsCompanion podcastCompanion) async {
     // Add the row count as the default "sortOrder".
     final currentCount = await (select(podcasts).get()).then((rows) => rows.length);
 
-    final newEntry = podcast.copyWith(
+    final companionWithSortOrder = podcastCompanion.copyWith(
       sortOrder: Value(currentCount),
     );
 
-    return into(podcasts).insert(newEntry, mode: InsertMode.replace);
+    // 1. Perform the "insert or replace" operation and get the rowid.
+    final int insertedRowId = await into(podcasts).insert(companionWithSortOrder, mode: InsertMode.replace);
+
+    final query = select(podcasts)..where((tbl) => CustomExpression<bool>("rowid = $insertedRowId"));
+    final result = await query.getSingle();
+
+    return result;
+  }
+
+  Future<DateTime?> bumpLastViewed(String id) async {
+    final now = DateTime.now();
+    final affectedRows = await (update(podcasts)..where((tbl) => tbl.id.equals(id)))
+        .write(PodcastsCompanion(
+      lastViewed: Value(now),
+    ));
+
+    return affectedRows > 0 ? now : null;
   }
 
   Future<int> unsubscribePodcast(String id) =>
@@ -31,5 +48,36 @@ class PodcastsDao extends DatabaseAccessor<AppDatabase> with _$PodcastsDaoMixin 
   Future<bool> isSubscribed(String id) async {
     final podcast = await (select(podcasts)..where((tbl) => tbl.id.equals(id))..limit(1)).getSingleOrNull();
     return podcast != null;
+  }
+
+  Future<void> swapPodcastSortOrder(String podcastIdA, String podcastIdB) async {
+    // Ensure we're not trying to swap a podcast with itself.
+    if (podcastIdA == podcastIdB) return;
+
+    // Use a transaction to ensure atomicity: either both updates succeed or neither does.
+    await transaction(() async {
+      // 1. Get the current sortOrder for both podcasts.
+      final podcastA = await (select(podcasts)..where((tbl) => tbl.id.equals(podcastIdA))).getSingleOrNull();
+      final podcastB = await (select(podcasts)..where((tbl) => tbl.id.equals(podcastIdB))).getSingleOrNull();
+
+      // Check if both podcasts exist.
+      if (podcastA == null || podcastB == null) {
+        // Handle error: one or both podcasts not found.
+        // You might throw an exception or log a warning.
+        debugPrint("Error: One or both podcasts not found for swapping sort order.");
+        return;
+      }
+
+      final sortOrderA = podcastA.sortOrder;
+      final sortOrderB = podcastB.sortOrder;
+
+      // 2. Update podcast A with podcast B's sortOrder.
+      await (update(podcasts)..where((tbl) => tbl.id.equals(podcastIdA)))
+          .write(PodcastsCompanion(sortOrder: Value(sortOrderB)));
+
+      // 3. Update podcast B with podcast A's original sortOrder.
+      await (update(podcasts)..where((tbl) => tbl.id.equals(podcastIdB)))
+          .write(PodcastsCompanion(sortOrder: Value(sortOrderA)));
+    });
   }
 }
